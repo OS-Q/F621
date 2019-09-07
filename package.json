@@ -1,0 +1,7 @@
+{
+    "name": "framework-opencpu",
+    "description": "NB-IoT opencpu Frameworks for PlatformIO",
+    "url": "https://github.com/OS-Q/N18",
+    "system": "*",
+    "version": "1.0.0"
+}
