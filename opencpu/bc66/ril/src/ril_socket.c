@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -41,7 +41,6 @@
 #include "ql_trace.h"
 #include "ql_common.h"
 #include "ql_uart.h"
-#include "ril_system.h"
 #include "ril_socket.h"
 #ifdef __OCPU_RIL_SUPPORT__
 
@@ -81,56 +80,6 @@ static s32 ATResponse_Handler(char* line, u32 len, void* userData)
     
     return RIL_ATRSP_CONTINUE; //continue wait
 }
-
-
-static s32 ATRsp_Soc_Qiopen_Handler(char* line, u32 len, void* userdata)
-{  
-     ST_RIL_SocketParam *ril_socket_param_t = (ST_RIL_SocketParam *)userdata;
-    char *head = Ql_RIL_FindString(line, len, ril_socket_param_t->prefix); //continue wait
-
-	if(head)
-    {
-        char strTmp[10];
-        char* p1 = NULL;
-        char* p2 = NULL;
-        Ql_memset(strTmp, 0x0, sizeof(strTmp));
-		p1 = Ql_strstr(head, ":");
-		p1 +=1;
-        p2 = Ql_strstr(p1, "\r\n");
-	    *p2 = '\0';
-		QSDK_Get_Str(p1,strTmp,0);
-		ril_socket_param_t->connectID = Ql_atoi(strTmp);//connextid
-		
-		Ql_memset(strTmp, 0x0, sizeof(strTmp));
-		QSDK_Get_Str(p1,strTmp,1);
-		ril_socket_param_t->errorno = Ql_atoi(strTmp);  //errorno
-
-        return  RIL_ATRSP_SUCCESS;
-    }
-    head = Ql_RIL_FindLine(line, len, "OK");
-    if(head)
-    {  
-        return  RIL_ATRSP_CONTINUE;  
-    }
-    head = Ql_RIL_FindLine(line, len, "ERROR");
-    if(head)
-    {  
-        return  RIL_ATRSP_FAILED;
-    }
-    head = Ql_RIL_FindString(line, len, "+CME ERROR:");//fail
-    if(head)
-    {
-        return  RIL_ATRSP_FAILED;
-    }
-    head = Ql_RIL_FindString(line, len, "+CMS ERROR:");//fail
-    if(head)
-    {
-        return  RIL_ATRSP_FAILED;
-    }
-    return RIL_ATRSP_CONTINUE; //continue wait
-}
-
-
 
 
 static s32 ATRsp_Soc_Qisend_Handler(char* line, u32 len, void* userData)
@@ -263,7 +212,6 @@ s32  RIL_SOC_QIOPEN(ST_Socket_Param_t* socket_param_t)
 {
     s32 ret = RIL_AT_SUCCESS;
     char strAT[200];
-	ST_RIL_SocketParam ril_socket_param;
 
     Ql_memset(strAT, 0, sizeof(strAT));
     Ql_sprintf(strAT, "AT+QICFG=\"%s\",1\n","viewmode");
@@ -296,26 +244,8 @@ s32  RIL_SOC_QIOPEN(ST_Socket_Param_t* socket_param_t)
     		       "UDP",socket_param_t->address,socket_param_t->remote_port,socket_param_t->local_port,\
     		       socket_param_t->access_mode,socket_param_t->protocol_type);
 	}
-	ril_socket_param.prefix="+QIOPEN:";
-	ril_socket_param.errorno = 255;
-	ril_socket_param.connectID = -1;
-
-    ret = Ql_RIL_SendATCmd(strAT,Ql_strlen(strAT),ATRsp_Soc_Qiopen_Handler,&ril_socket_param,0);
+    ret = Ql_RIL_SendATCmd(strAT,Ql_strlen(strAT),ATResponse_Handler,NULL,0);
 	RIL_SOCKET_DEBUG(DBG_Buffer,"<-- Send AT:%s, ret = %d -->\r\n",strAT, ret);
-    if(RIL_AT_SUCCESS != ret)
-    {
-        RIL_SOCKET_DEBUG(DBG_Buffer,"\r\n<-- send AT command failure -->\r\n");
-        return ret;
-    }
-    else if(0 != ril_socket_param.errorno) // socket open failed!!!
-    {
-        RIL_SOCKET_DEBUG(DBG_Buffer,"\r\n<-- socket OPEN get failure(%d) -->\r\n", ril_socket_param.errorno);
-        return (ril_socket_param.errorno);
-    }
-	else if(0 == ril_socket_param.errorno)
-	{
-         return(ril_socket_param.connectID);
-	}
     return ret;
 
 }
@@ -324,13 +254,23 @@ s32  RIL_SOC_QIOPEN(ST_Socket_Param_t* socket_param_t)
 s32 RIL_SOC_QISEND(u8 connectID, u32 send_length,u8* send_buffer)
 {
     s32 ret = RIL_AT_SUCCESS;
-    char strAT[2048];
+	u8* strAT  = NULL;
+
+	strAT = (u8*)Ql_MEM_Alloc(sizeof(u8)*2048);
+	if(NULL == strAT)
+	{
+       return RIL_AT_INVALID_PARAM;
+	}
 	
     Ql_memset(strAT, 0, sizeof(strAT));
     Ql_sprintf(strAT, "AT+QISEND=%d,%d,%s\n",connectID,send_length, send_buffer);
     ret = Ql_RIL_SendATCmd(strAT,Ql_strlen(strAT),ATRsp_Soc_Qisend_Handler,0,0);
-	
 	RIL_SOCKET_DEBUG(DBG_Buffer,"<--Send AT:%s, ret = %d -->\r\n",strAT, ret);
+	if(NULL != strAT)
+	{
+       Ql_MEM_Free(strAT);
+	   strAT  = NULL;
+	}
     return ret;
 }
 
@@ -339,13 +279,23 @@ s32 RIL_SOC_QISEND(u8 connectID, u32 send_length,u8* send_buffer)
 s32 RIL_SOC_QISENDEX(u8 connectID, u32 send_length,u8* send_hex_buffer)
 {
     s32 ret = RIL_AT_SUCCESS;
-    char strAT[2048];
+    u8* strAT  = NULL;
+
+	strAT = (u8*)Ql_MEM_Alloc(sizeof(u8)*2048);
+	if(NULL == strAT)
+	{
+       return RIL_AT_INVALID_PARAM;
+	}
 	
     Ql_memset(strAT, 0, sizeof(strAT));
     Ql_sprintf(strAT, "AT+QISENDEX=%d,%d,%s\n",connectID,send_length, send_hex_buffer);
     ret = Ql_RIL_SendATCmd(strAT,Ql_strlen(strAT),ATRsp_Soc_Qisend_Handler,0,0);
-	
 	RIL_SOCKET_DEBUG(DBG_Buffer,"<--Send AT:%s, ret = %d -->\r\n",strAT, ret);
+	if(NULL != strAT)
+	{
+       Ql_MEM_Free(strAT);
+	   strAT  = NULL;
+	}
     return ret;
 }
 
@@ -406,6 +356,8 @@ s32 RIL_SOC_QICFG_FORMAT(bool send_format,bool recv_format)
 {
     s32 ret = RIL_AT_SUCCESS;
     char strAT[200];
+	send_data_format = send_format;
+	recv_data_format = recv_format;
 	
     Ql_memset(strAT, 0, sizeof(strAT));
     Ql_sprintf(strAT, "AT+QICFG=\"dataformat\",%d,%d\n",send_format,recv_format);

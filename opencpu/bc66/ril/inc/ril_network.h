@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -78,5 +78,21 @@ typedef enum {
 *               -1 : fail to get the network state.
 ******************************************************************************/
 s32  RIL_NW_GetEGPRSState(s32 *stat);
+
+/******************************************************************************
+* Function:     RIL_SIM_GetSimStateByName
+*  
+* Description:
+*               This function gets  sim card state by name. 
+*
+* Parameters:    
+*               simStat:
+*                   [out]sim card State.
+*               len:
+*                 name length.
+* Return:  
+*               One value of Enum_SIMState.
+******************************************************************************/
+Enum_SIMState RIL_SIM_GetSimStateByName(char* simStat, u32 len);
 
 #endif // __RIL_NETWORK_H__

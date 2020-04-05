@@ -1,3 +1,22 @@
+/*
+    Created on: 01.01.2019
+    Author: Georgi Angelov
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA   
+ */
+
 #include "dbg.h"
 #include <qapi_timer.h>
 
@@ -16,10 +35,11 @@ void debug_disable(void)
 #ifdef ENABLE_DEBUG
 
 #define DEBUG_PORT QAPI_UART_PORT_002_E
+
 qapi_UART_Handle_t DEBUG_UART;
 
-static void uart_rx_cb(uint32_t num_bytes, void *cb_data) {}
-static void uart_tx_cb(uint32_t num_bytes, void *cb_data) {}
+static void dbg_uart_rx_cb(uint32_t num_bytes, void *cb_data) {}
+static void dbg_uart_tx_cb(uint32_t num_bytes, void *cb_data) {}
 
 void dbg_init(void)
 {
@@ -28,8 +48,8 @@ void dbg_init(void)
     cfg.baud_Rate = 115200;
     cfg.bits_Per_Char = QAPI_UART_8_BITS_PER_CHAR_E;
     cfg.num_Stop_Bits = QAPI_UART_1_0_STOP_BITS_E;
-    cfg.rx_CB_ISR = (qapi_UART_Callback_Fn_t)&uart_rx_cb;
-    cfg.tx_CB_ISR = (qapi_UART_Callback_Fn_t)&uart_tx_cb;
+    cfg.rx_CB_ISR = (qapi_UART_Callback_Fn_t)&dbg_uart_rx_cb;
+    cfg.tx_CB_ISR = (qapi_UART_Callback_Fn_t)&dbg_uart_tx_cb;
     qapi_UART_Open(&DEBUG_UART, DEBUG_PORT, &cfg);
     qapi_UART_Power_On(DEBUG_UART);
     debug_enable(DEBUG_UART);
@@ -59,7 +79,7 @@ void log_buf(const char *text, const unsigned char *buf, unsigned int len)
         return;
     char txt[17];
     unsigned int i, idx = 0;
-    snprintf(bufferDump + idx, sizeof(bufferDump) - idx, "[DMP] %s 0x%08X (%u bytes)\n", text, buf, (unsigned int)len);
+    snprintf(bufferDump + idx, sizeof(bufferDump) - idx, "[DMP] %s 0x%08X (%u bytes)\n", text, (int)buf, (unsigned int)len);
     log_printf(bufferDump);
     idx = 0;
     memset(txt, 0, sizeof(txt));

@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -57,6 +57,13 @@ typedef enum{
     PINNAME_GPIO5,//not supports EINT
     PINNAME_RXD_DBG,//not supports EINT
     PINNAME_TXD_DBG,//not supports EINT
+#ifdef __OCPU_GPIO_EXTEND_SUPPORT__  //only A07 or updated version supports.
+    PINNAME_GPIO0,//not supports EINT
+    PINNAME_USB_MODE,//not supports EINT
+    PINNAME_GPIO6,//not supports EINT
+    PINNAME_GPIO7,//not supports EINT
+    PINNAME_GPIO8,//not supports EINT
+#endif
     PINNAME_END
 }Enum_PinName;
 

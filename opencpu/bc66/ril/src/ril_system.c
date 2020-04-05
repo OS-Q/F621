@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -44,24 +44,19 @@
 #include "ql_type.h"
 #include "ril_lwm2m.h"
 
-#include <string.h>
-
-char *wiz_strtok(char *s, const char *delim);
-char *wiz_strsep(char **stringp, const char *delim);
-
 #ifdef __OCPU_RIL_SUPPORT__ 
 
 
 static s32 ATRsp_IMEI_Handler(char* line, u32 len, void* param)
 {
     char* pHead = NULL;
-    pHead = Ql_RIL_FindLine(line, len, "OK"); // find <CR><LF>OK<CR><LF>, <CR>OK<CR>ï¿½ï¿½<LF>OK<LF>
+    pHead = Ql_RIL_FindLine(line, len, "OK"); // find <CR><LF>OK<CR><LF>, <CR>OK<CR>£¬<LF>OK<LF>
     if (pHead)
     {  
         return RIL_ATRSP_SUCCESS;
     }
 
-    pHead = Ql_RIL_FindLine(line, len, "ERROR");// find <CR><LF>ERROR<CR><LF>, <CR>ERROR<CR>ï¿½ï¿½<LF>ERROR<LF>
+    pHead = Ql_RIL_FindLine(line, len, "ERROR");// find <CR><LF>ERROR<CR><LF>, <CR>ERROR<CR>£¬<LF>ERROR<LF>
     if (pHead)
     {  
         return RIL_ATRSP_FAILED;
@@ -158,7 +153,7 @@ u32 open_socket_rd_param_parse_cmd(const char *cmd_string, u32 recv_length, cons
             strncpy(param, p, len);
             *(param + len) = '\0';
             p = p2;
-            wiz_strsep(&p, ",");
+            strsep(&p, ",");
         } else 
         {
 			if ( param_num == 2 )  //process json format data
@@ -217,7 +212,7 @@ u32 open_socket_rd_param_parse_cmd(const char *cmd_string, u32 recv_length, cons
 }
 
 
-//src_string="GPRMC,235945.799,V,,,,,0.00,0.00,050180,,,N" index =1  ï¿½ï¿½ï¿½ï¿½TRUE ,dest_string="235945.799"; index =3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½FALSE
+//src_string="GPRMC,235945.799,V,,,,,0.00,0.00,050180,,,N" index =1  ·µ»ØTRUE ,dest_string="235945.799"; index =3£¬·µ»ØFALSE
 bool QSDK_Get_Str(char *src_string,  char *dest_string, unsigned char index)
 {
     u32 SentenceCnt = 0;
@@ -350,7 +345,7 @@ u32 open_socket_push_json_param_parse_cmd(const char *cmd_string, u32 recv_lengt
 		{
 			temp_length = Ql_atoi(param_list[2]);
 		}
-		param = param + Ql_strlen(param) + 1;
+		param = param + strlen(param) + 1;
 	}
 
 	return param_num;
@@ -389,9 +384,9 @@ u32 open_socket_push_param_parse_cmd(const char *cmd_string, const char *param_b
 			strncpy(param, p, len);
 			*(param + len) = '\0';
 			p = p2;
-			wiz_strsep(&p, ",");
+			strsep(&p, ",");
 		} else {
-			ptmp = wiz_strsep(&p, ",");
+			ptmp = strsep(&p, ",");
 			if (!ptmp)
 			{
 				break;
@@ -440,100 +435,14 @@ u32 open_socket_push_param_parse_cmd(const char *cmd_string, const char *param_b
 	return param_num;
 }
 
-
-//[The custom interface handles data with character 00]
-u32 open_lwm2m_param_parse_cmd(const char *cmd_string, const char *param_buffer, char *param_list[], u32 param_max_num)
-{
-    /*----------------------------------------------------------------*/
-    /* Local Variables                                                */
-    /*----------------------------------------------------------------*/
-    int i;
-    u32 param_num = 0;
-    char* p = (char *)cmd_string, *p2, *ptmp;
-    char* param = (char *)param_buffer;
-    u32 param_len, len;
-	u32 temp_length = 0;
-	extern bool g_LWM2M_RECV_DATA_MODE;
-	
-    /*----------------------------------------------------------------*/
-    /* Code Body                                                      */
-    /*----------------------------------------------------------------*/
-    p = strtok(p, "\r\n");
-    while (p != NULL && *p != '\0' && param_num < param_max_num) {
-        // remove leading blanks & tabs
-        while (*p == ' ' || *p == '\t') {
-            p++;
-        }
-        // remove double quotation
-        if (*p == '\"') {
-            p2 = strchr(++p, '"');
-            if (p2 == NULL) {
-                break;
-            }
-            len = p2 - p;
-            strncpy(param, p, len);
-            *(param + len) = '\0';
-            p = p2;
-            wiz_strsep(&p, ",");
-        } else {
-            ptmp = wiz_strsep(&p, ",");
-            if (!ptmp)
-            {
-                break;
-            }
-			if ( param_num == 4 && (g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_TEXT) )
-			{
-				Ql_memcpy(param, ptmp, temp_length);
-			}
-			else
-			{
-            	strcpy(param, ptmp);
-			}
-            // remove post blanks & tabs 
-            if ( param_num == 4 && (g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_TEXT) )
-            {
-				param_len = temp_length;
-            }
-			else
-			{
-            	param_len = strlen(param);
-				for (i = param_len - 1; i >= 0; i--) {
-		            if (*(param + i) == ' ' || *(param + i) == '\t') {
-		                *(param + i) = '\0';
-		            } else {
-		                break;
-		            }
-            	}
-			} 
-        }
-        // add to param_list
-		if ( param_num == 4 && (g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_TEXT) )
-		{
-			param_list[param_num++] = param;
-		}
-		else
-		{
-        	param_list[param_num++] = param;
-			if ( param_num == 4 && (g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_TEXT) )
-			{
-				temp_length = Ql_atoi(param_list[3]);
-			}
-		}
-        param = param + strlen(param) + 1;
-    }
-
-    return param_num;
-}
-
-
 char* Qstr_seacher_with( const char* line, u32 cmd_buf_len, const char* prefix )
 {
-	if ( line == NULL || prefix == NULL || prefix == NULL || (int)cmd_buf_len < 0 )
+	if ( line == NULL || prefix == NULL || prefix == '\0' || cmd_buf_len < 0 )
 	{
 		return NULL;
 	}
 
-	char* temp_src = (char*)line;
+	char* temp_src = line;
 	int prefix_len = Ql_strlen(prefix);
 	int last_possible = cmd_buf_len - prefix_len + 1;
 
@@ -582,9 +491,9 @@ u32 open_param_parse_cmd(const char *cmd_string, const char *param_buffer, char 
             strncpy(param, p, len);
             *(param + len) = '\0';
             p = p2;
-            wiz_strsep(&p, ",");
+            strsep(&p, ",");
         } else {
-            ptmp = wiz_strsep(&p, ","); 
+            ptmp = strsep(&p, ","); 
             if (!ptmp)
             {
                 break;

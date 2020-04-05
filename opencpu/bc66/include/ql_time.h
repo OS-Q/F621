@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -43,14 +43,14 @@ typedef struct {
     s32 hour;
     s32 minute;
     s32 second;
-    s32 timezone;  // The range is(-11~12).one digit expresses an hour, for example: 8 indicates "GMT+8"
+    s32 timezone;  // The range is(-47~48), one digit expresses 15 minutes, for example: 32 indicates "GMT+8"
 }ST_Time;
 
 /*****************************************************************
 * Function:     Ql_SetLocalTime 
 * 
 * Description:
-*               Set the current local date and time.
+*               This function is uesd to set UTC time and local quarter timezone.
 *
 * Parameters:
 *               dateTime:
@@ -66,7 +66,7 @@ s32 Ql_SetLocalTime(ST_Time* dateTime);
 * Function:     Ql_GetLocalTime 
 * 
 * Description:
-*               Get the current local date and time.
+*               This function is used to get UTC time and local quarter timezone.
 *
 * Parameters:
 *               dateTime:
@@ -81,7 +81,7 @@ ST_Time* Ql_GetLocalTime(ST_Time* dateTime);
 * Function:     Ql_Mktime 
 * 
 * Description:
-*               This function get total seconds elapsed 
+*               This function is used to get total seconds of UTC time elapsed 
 *               since 1970.01.01 00:00:00.
 *
 * Parameters:
@@ -111,14 +111,8 @@ u64 Ql_Mktime(ST_Time* dateTime);
 *               pOutDateTime:
 *                       [out] Point to the ST_Time object
 * Return:
-*               if succeed,return the current local date and time
-*               , NULL means operation failure.
-*
-*---------------
-* Usage:
-*               ST_Time systime;
-*               systime = Ql_MKTime2CalendarTime(seconds, &systime);
-*               
+*               If succeed, return the UTC time and quarter timezone.
+*               NULL means operation failure, not get the converted time.       
 *****************************************************************/
 ST_Time* Ql_MKTime2CalendarTime(u64 seconds, ST_Time* pOutDateTime);
 

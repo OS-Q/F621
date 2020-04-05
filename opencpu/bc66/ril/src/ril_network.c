@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -43,7 +43,7 @@
 #ifdef __OCPU_RIL_SUPPORT__
 
 
-s32 RIL_SIM_GetSimStateByName(char* simStat, u32 len)
+Enum_SIMState RIL_SIM_GetSimStateByName(char* simStat, u32 len)
 {
     s32 ss = SIM_STAT_UNSPECIFIED;
     if (Ql_strncmp(simStat, "READY", len) == 0)

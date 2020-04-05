@@ -124,7 +124,8 @@ Constructs a msg_const_type from the SSID, mask and format-string
     static const msg_const_type xx_msg_const = { \
 	  {__LINE__, (xx_ss_id), (xx_ss_mask)}, (xx_fmt), msg_file}
 
-#define PACK(x)       __packed x
+/* edit: WizIO */
+#define PACK(x) /*__packed*/ x
 
 /*! 
 @ingroup packet_service

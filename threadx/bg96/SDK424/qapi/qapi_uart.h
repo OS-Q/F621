@@ -252,7 +252,7 @@ typedef int  (*uart_rx_dispatcher_cb)(void *pfnUser_cb, int cb_param1, int cb_pa
                                                             (UINT) _txm_module_system_call5( \
                                                                      TXM_QAPI_UART_IOCTL, \
                                                                     (ULONG) handle, (ULONG) ioctl_Command,\
-                                                                    (ULONG) ioctl_Param, (ULONG) 0, (ULONG) 0);
+                                                                    (ULONG) ioctl_Param, (ULONG) 0, (ULONG) 0)
 
 static __inline int qapi_uart_tx_user_cb_dispatcher (UINT cb_id, void *pfnUser_cb,
 									UINT cb_param1, UINT cb_param2)

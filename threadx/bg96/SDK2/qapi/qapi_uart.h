@@ -237,7 +237,7 @@ typedef struct
                                                             (UINT) _txm_module_system_call4( \
                                                                      TXM_QAPI_UART_IOCTL, \
                                                                     (ULONG) handle, (ULONG) ioctl_Command,\
-                                                                    (ULONG) ioctl_Param, (ULONG) 0);
+                                                                    (ULONG) ioctl_Param, (ULONG) 0)
 
 #elif defined QAPI_TXM_SOURCE_CODE      // KERNEL_MODE_DEFS
 /*==================================================================================================

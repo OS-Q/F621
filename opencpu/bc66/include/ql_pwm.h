@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -70,6 +70,9 @@ typedef enum{
 *               highPulseNum:
 *                   set the number of clock cycles to stay at high level. The result
 *                   of lowPulseNum plus highPulseNum is less than 8193.
+*
+*		    Notes: PWM frequency=(pwmSrcClk/pwmDiv)/(lowPulseNum+highPulseNum).
+*			
 * Return:        
 *               QL_RET_OK, this function succeeds.
 *               QL_RET_ERR_NOSUPPORTPIN, the input pin is invalid. 

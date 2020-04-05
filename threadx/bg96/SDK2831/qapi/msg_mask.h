@@ -250,7 +250,8 @@ static const char msg_file[] = MSG_FILE;
 #define msg_file MY_GCC_FILE
 
 #elif defined (__GNUC__)
-#define msg_file __FILENAME__
+/*WizIO*/
+#define msg_file //__FILENAME__
 
 #else
 

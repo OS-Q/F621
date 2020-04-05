@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -47,7 +47,7 @@ static s32 m_iErrCode = 0; // Is used to record the specific error code
 s32 Ql_RIL_AT_GetErrCode(void) {return m_iErrCode;}
 //
 // Developer can call this API to set the error code when resolving the response for AT.
-s32 Ql_RIL_AT_SetErrCode(s32 errCode) {m_iErrCode = errCode; return errCode; }
+s32 Ql_RIL_AT_SetErrCode(s32 errCode) {m_iErrCode = errCode;}
 
 /******************************************************************************
 * Function:     Default_atRsp_callback
@@ -94,12 +94,12 @@ s32 Default_atRsp_callback(char* line, u32 len, void* userdata)
 		recv_data_format = Ql_atoi(temp_num_buffer);
 	}
 
-    if (Ql_RIL_FindLine(line, len, "OK"))// find <CR><LF>OK<CR><LF>,OK<CR><LF>, <CR>OK<CR>ï¿½ï¿½<LF>OK<LF>
+    if (Ql_RIL_FindLine(line, len, "OK"))// find <CR><LF>OK<CR><LF>,OK<CR><LF>, <CR>OK<CR>£¬<LF>OK<LF>
     {
         m_iErrCode = RIL_ATRSP_SUCCESS;
         return  RIL_ATRSP_SUCCESS;
     }
-    else if (Ql_RIL_FindLine(line, len, "ERROR")) // find <CR><LF>ERROR<CR><LF>, <CR>ERROR<CR>ï¿½ï¿½<LF>ERROR<LF>
+    else if (Ql_RIL_FindLine(line, len, "ERROR")) // find <CR><LF>ERROR<CR><LF>, <CR>ERROR<CR>£¬<LF>ERROR<LF>
     {
         m_iErrCode = RIL_ATRSP_FAILED;
         return  RIL_ATRSP_FAILED;

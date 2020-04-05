@@ -55,7 +55,6 @@ static void uart_tx_cb(uint32_t num_bytes, void *cb_data);
 */
 void uart_init(QT_UART_CONF_PARA *uart_conf)
 {
-	qapi_Status_t status;
 	qapi_UART_Open_Config_t uart_cfg;
 //	QAPI_Flow_Control_Type uart_fc_type = QAPI_FCTL_OFF_E;
 
@@ -68,11 +67,14 @@ void uart_init(QT_UART_CONF_PARA *uart_conf)
 	uart_cfg.rx_CB_ISR			= (qapi_UART_Callback_Fn_t)&uart_rx_cb;
 	uart_cfg.tx_CB_ISR			= (qapi_UART_Callback_Fn_t)&uart_tx_cb;;
 
-	status = qapi_UART_Open(&uart_conf->hdlr, uart_conf->port_id, &uart_cfg);
-	IOT_DEBUG("QT# qapi_UART_Open [%d] status %d", uart_conf->port_id, status);
+	//qapi_Status_t status;
+	//status = 
+	qapi_UART_Open(&uart_conf->hdlr, uart_conf->port_id, &uart_cfg);
+	//IOT_DEBUG("QT# qapi_UART_Open [%d] status %d", uart_conf->port_id, status);
 
-	status = qapi_UART_Power_On(uart_conf->hdlr);
-	IOT_DEBUG("QT# qapi_UART_Power_On [%d] status %d", uart_conf->port_id, status);
+	//status = 
+	qapi_UART_Power_On(uart_conf->hdlr);
+	//IOT_DEBUG("QT# qapi_UART_Power_On [%d] status %d", uart_conf->port_id, status);
 #if 0
 	status = qapi_UART_Ioctl(uart_conf->hdlr, QAPI_SET_FLOW_CTRL_E, &uart_fc_type);
 	IOT_DEBUG("QT# qapi_UART_Ioctl [%d] status %d", uart_conf->port_id, status);	
@@ -87,9 +89,9 @@ void uart_init(QT_UART_CONF_PARA *uart_conf)
 */
 void uart_print(QT_UART_CONF_PARA *uart_conf, char *buff, uint16_t len)
 {
-	qapi_Status_t status;
-	status = qapi_UART_Transmit(uart_conf->hdlr, buff, len, NULL);
-	IOT_DEBUG("QT# qapi_UART_Transmit [%x] status %d", &uart_conf->port_id, status);
+	//qapi_Status_t = 
+	qapi_UART_Transmit(uart_conf->hdlr, buff, len, NULL);
+	//IOT_DEBUG("QT# qapi_UART_Transmit [%x] status %d", &uart_conf->port_id, status);
 }
 
 /*
@@ -100,9 +102,9 @@ void uart_print(QT_UART_CONF_PARA *uart_conf, char *buff, uint16_t len)
 */
 void uart_recv(QT_UART_CONF_PARA *uart_conf)
 {
-	qapi_Status_t status;
-	status = qapi_UART_Receive(uart_conf->hdlr, uart_conf->rx_buff, uart_conf->rx_len, (void*)uart_conf);
-	IOT_DEBUG("QT# qapi_UART_Receive [%d] status %d", (qapi_UART_Port_Id_e)uart_conf->port_id, status);
+	//qapi_Status_t status = 
+	qapi_UART_Receive(uart_conf->hdlr, uart_conf->rx_buff, uart_conf->rx_len, (void*)uart_conf);
+	//IOT_DEBUG("QT# qapi_UART_Receive [%d] status %d", (qapi_UART_Port_Id_e)uart_conf->port_id, status);
 }
 
 /*
@@ -162,4 +164,3 @@ void qt_uart_dbg(qapi_UART_Handle_t uart_hdlr, const char* fmt, ...)
     qapi_UART_Transmit(uart_hdlr, "\r\n", strlen("\r\n"), NULL);
     qapi_Timer_Sleep(50, QAPI_TIMER_UNIT_MSEC, true);
 }
-

@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -113,7 +113,7 @@ typedef enum {
 * Function:     Ql_Sleep
 *
 * Description:
-*               Suspends the execution of the current task
+*               This is a delay interface,suspends the execution of the current task
 *               until the time-out interval elapses.
 * Parameters:
 *               msec:
@@ -121,8 +121,28 @@ typedef enum {
 *                   be suspended, in milliseconds.
 * Return:
 *               None
+* Note:
+*               if  users set the msec to 1, the task will also delay 10 ms, because one tick of the OS is 10 ms.
 *****************************************************************/
 void Ql_Sleep(u32 msec);
+
+/*****************************************************************
+* Function:     Ql_Delay_us
+*
+* Description:
+*               This is a delay interface,blocks the execution of the current task
+*               until the time-out interval elapses.
+* Parameters:
+*               usec:
+*                   The time interval for which execution is to
+*                   be blocked, in microseconds.
+* Return:
+*               None
+* Note:
+*               If users  need to delay too long, such as a few seconds, it's best to use Ql_Sleep,because 
+* this API is block.
+*****************************************************************/
+void Ql_Delay_us(u32 usec);
 
 /*****************************************************************
 * Function:     Ql_Reset
@@ -187,10 +207,10 @@ s32 Ql_OS_GetMessage(ST_MSG* msg);
 *               param2:
 *                   Parameters to send to another task.
 * Return:        
-*               OS_SUCCESS
-*               OS_INVALID_ID
-*               OS_MEMORY_NOT_VALID
-*               OS_Q_FULL
+*               OS_SUCCESS, sent data to the target task successfully.
+*               OS_INVALID_ID, the task id is invalid.
+*               OS_NOT_INITIALIZED, the target task is invalid.
+*               OS_Q_FULL, the message queue of target task is full.
 *****************************************************************/
 s32 Ql_OS_SendMessage(s32 destTaskId, u32 msgId, u32 param1, u32 param2);
 
@@ -198,7 +218,7 @@ s32 Ql_OS_SendMessage(s32 destTaskId, u32 msgId, u32 param1, u32 param2);
 * Function:     Ql_OS_SendMessageFromISR 
 * 
 * Description:
-*               Send message between tasks,It Supports sending messages in ISR.
+*               Send message between tasks,It Supports sending messages in ISR(except callback of psm_eint).
 
 * Parameters:
 *               destTaskId: 
@@ -223,7 +243,8 @@ s32 Ql_OS_SendMessageFromISR(s32 destTaskId, u32 msgId, u32 param1, u32 param2);
 *               Create a mutex with name.
 
 * Parameters:
-*               mutexName: Mutex Name
+*               None.
+*
 * Return:        
 *               Mutex Id
 *****************************************************************/
@@ -241,9 +262,9 @@ u32 Ql_OS_CreateMutex(void);
 *               block_time:
 *                        The time in ticks to wait for the mutex to become  available.unit:ms
 * Return:        
-*               None
+*                TRUE indicates success or FALSE indicates failure. 
 *****************************************************************/
-void Ql_OS_TakeMutex(u32 mutexId,u32 block_time);
+bool Ql_OS_TakeMutex(u32 mutexId,u32 block_time);
 
 /*****************************************************************
 * Function:     Ql_OS_GiveMutex 
@@ -254,9 +275,9 @@ void Ql_OS_TakeMutex(u32 mutexId,u32 block_time);
 * Parameters:
 *               mutexId: Mutex Id
 * Return:        
-*               None
+*               TRUE indicates success or FALSE indicates failure. 
 *****************************************************************/
-void Ql_OS_GiveMutex(u32 mutexId);
+bool Ql_OS_GiveMutex(u32 mutexId);
 
 /*****************************************************************
 * Function:     Ql_OS_CreateSemaphore 
@@ -283,12 +304,12 @@ u32 Ql_OS_CreateSemaphore(u32 maxCount,u32 InitialCount);
 *               semId:
 *                        A handle to the semaphore being taken - obtained when the semaphore was created.
 *               block_time: 
-*                        The time in ticks to wait for the semaphore to become available
+*                        wait for the semaphore to become available, unit:ms
 * Return:        
-*               OS_SUCCESS: the operation is done successfully
-*               OS_SEM_NOT_AVAILABLE: the semaphore is unavailable immediately.
+*               TRUE: if the semaphore was obtained. 
+*               FALSE: if xBlockTime expired without the semaphore becoming available..
 *****************************************************************/
-u32 Ql_OS_TakeSemaphore(u32 semId, u32 block_time);
+bool Ql_OS_TakeSemaphore(u32 semId, u32 block_time);
 
 /*****************************************************************
 * Function:     Ql_OS_GiveSemaphore 
@@ -300,9 +321,9 @@ u32 Ql_OS_TakeSemaphore(u32 semId, u32 block_time);
 *               semId: 
 *                       A handle to the semaphore being taken - obtained when the semaphore was created.
 * Return:        
-*               None
+*                TRUE indicates success or FALSE indicates failure. 
 *****************************************************************/
-void Ql_OS_GiveSemaphore(u32 semId);
+bool Ql_OS_GiveSemaphore(u32 semId);
 
 /*****************************************************************
 * Function:     Ql_OS_CreateEvent 
@@ -312,8 +333,7 @@ void Ql_OS_GiveSemaphore(u32 semId);
 *			Each event-flag group contains 10 event flags. 
 *
 * Parameters:
-*			evtName:
-*				Event name.
+*			None
 *
 * Return:        
 *			An event Id that identify this event uniquely.
@@ -334,7 +354,7 @@ u32 Ql_OS_CreateEvent(void);
 *			evtFlag:
 *				Event flag type. Please refer to Enum_EventFlag.
 *               block_time:
-*                         The time in ticks to wait for the event to become available
+*                         wait for the event to become available, unit:ms
 *
 * Return:        
 *			Returns the current event flag group value.
@@ -368,7 +388,7 @@ s32 Ql_OS_SetEvent(u32 evtId, u32 evtFlag);
 * Parameters:
 *               errCode: Error code
 * Return:        
-*              True indicates success or failure indicates failure. 
+*              TRUE indicates success or FALSE indicates failure. 
 *****************************************************************/
 s32 Ql_SetLastErrorCode(s32 errCode);
 
@@ -394,7 +414,7 @@ s32 Ql_GetLastErrorCode(void);
 * Parameters:
 *               None
 * Return:        
-*               Task priority, ranges from 200 to 255.
+*               Task priority,The default value is 4.
 *****************************************************************/
 u32 Ql_OS_GetCurrentTaskPriority(void);
 
@@ -406,7 +426,7 @@ u32 Ql_OS_GetCurrentTaskPriority(void);
 * Parameters:
 *               None
 * Return:        
-*               Number of bytes, ranges from 1024 to 10*1024.
+*               Number of bytes, ranges from 1024KB to 10*1024KB.
 *****************************************************************/
 u32 Ql_OS_GetCurrenTaskLeftStackSize(void);
 
@@ -421,6 +441,33 @@ u32 Ql_OS_GetCurrenTaskLeftStackSize(void);
 *               The Id number of current task.
 *****************************************************************/
 s32 Ql_OS_GetActiveTaskId(void);
+
+/*****************************************************************
+* Function:     Ql_OS_GetTaskTickCount 
+* 
+* Description:
+*               This function returns the task ticks since task start scheduler.
+*               1 tick equals 10ms.
+* Parameters:
+*               None.
+* Return:        
+*               the count of ticks.
+*****************************************************************/
+u32 Ql_OS_GetTaskTickCount(void);
+
+/*****************************************************************
+* Function:     Ql_OS_GetTaskTickCountFromISR 
+* 
+* Description:
+*               This function returns the task ticks since task start scheduler,it is safe to be called from an ISR.
+*               1 tick equals 10ms.
+*
+* Parameters:
+*               None.
+* Return:        
+*               the count of ticks.
+*****************************************************************/
+u32 Ql_OS_GetTaskTickCountFromISR(void);
 
 
 /*****************************************************************

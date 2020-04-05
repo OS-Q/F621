@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -19,7 +19,9 @@
  *
  * Description:
  * ------------
- *   The module defines the information, and APIs related to the ADC function.
+ *   The module defines the information, and APIs related to the ADC function.We support two ways to get ADC data:
+ *    1. Message loop triggers callback.
+ *    2. single read .
  *
  * Author:
  * -------
@@ -39,6 +41,8 @@ typedef enum
     PIN_ADC_MAX = 2
 }Enum_ADCPin;
 
+
+#if 1  //Here is the loop interface
 /*****************************************************************
 * Function:     Ql_ADC_Register 
 * 
@@ -48,7 +52,7 @@ typedef enum
 *
 * Parameters:
 *               adcPin:
-*                   ADC pin name, one value of Enum_ADCPin.
+*                   ADC pin name, one value of Enum_ADCPin,only supports PIN_ADC0.
 *
 *               callback_adc:
 *                   callback function, which will be invoked when the ADC result comes out.
@@ -122,5 +126,39 @@ s32 Ql_ADC_Init(Enum_ADCPin adcPin, u32 count, u32 interval);
 *               QL_RET_ERR_ADC_SAMPLING_ALREADY,the ADC sampling has been started already
 *****************************************************************/
 s32 Ql_ADC_Sampling(Enum_ADCPin adcPin, bool enable);
+#endif //Here is the loop interface
+
+
+#if 1//Single read ADC value interface
+
+typedef enum {
+    QL_ADC_STATUS_INVALID_PARAMETER = -4,      /**< Invalid parameter */
+    QL_ADC_STATUS_ERROR_BUSY = -3,             /**< ADC is busy */
+    QL_ADC_STATUS_ERROR_CHANNEL = -2,          /**< ADC channel number error */
+    QL_ADC_STATUS_ERROR = -1,                  /**< ADC error */
+    QL_ADC_STATUS_OK = 0                       /**< ADC ok */
+}ql_adc_status_t;
+
+
+/*****************************************************************
+* Function:   Ql_ADC_Read 
+* 
+* Description:
+*               this function single read ADC values.
+*
+* Parameters:
+*               adcPin:
+*                    only supports PIN_ADC0.
+*             adc_vol:
+*                     ADC values ,The range is 0~1400mV
+*
+*                 
+* Return:        
+*             refer to the enum of ql_adc_status_t.
+*****************************************************************/
+s32 Ql_ADC_Read(Enum_ADCPin adcPin, u32 *adc_vol);
+
+#endif //Single read ADC value interface
+
 
 #endif  //__QL_ADC_H__

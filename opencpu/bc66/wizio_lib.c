@@ -10,7 +10,7 @@
 #include "ql_stdlib.h"
 
 /* need for quectel lib bss */
-extern void *memset(void *dst, int c, size_t n)
+void __attribute__((weak)) *memset(void *dst, int c, size_t n)
 {
 	if (n)
 	{

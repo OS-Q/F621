@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -36,6 +36,7 @@
 #define __QL_UART_H__
 #include "ql_common.h"
 #include "ql_system.h"
+#include "ql_gpio.h"
 
 typedef enum {
     UART_PORT0 = 0,
@@ -86,6 +87,12 @@ typedef enum {
     EVENT_UART_DTR_IND
 } Enum_UARTEventType;
 
+typedef enum {
+    UART_RX_BUF_RECEIVE_BYTES,  // This function queries receive bytes  in the RX buffer.
+    UART_TX_BUF_SEND_SPACES,     // This function queries available space in the  TX buffer.
+    UART_TX_BUF_SEND_OUT        // This function queries data has all been sent out  in the TX buffer . 
+}Enum_UARTOption;
+
 
 /*****************************************************************
 * Function:     Ql_UART_Register 
@@ -108,9 +115,9 @@ typedef enum {
 *               [in]customizePara: 
 *                       Customize parameter, if not use just set to NULL.    
 *
-* Return:        
-*               QL_RET_OK indicates success; otherwise failure.
-*
+* Return:
+*               QL_RET_OK, this function executed successfully.
+*		    QL_RET_ERR_INVALID_PORT, the port is not one value of Enum_SerialPort.
 *****************************************************************/
 typedef void (*CallBack_UART_Notify)( Enum_SerialPort port, Enum_UARTEventType event, bool pinLevel,void *customizePara);
 s32 Ql_UART_Register(Enum_SerialPort port, CallBack_UART_Notify callback_uart,void * customizePara);
@@ -127,19 +134,16 @@ s32 Ql_UART_Register(Enum_SerialPort port, CallBack_UART_Notify callback_uart,vo
 * Parameters:
 *               [in]port:       
 *                       Port name
-*               [in]baud:      
+*               baudrate:      
 *                       The baud rate of the UART to be opened
 *                       for the physical the baud rate support 75,150,300,600,1200,2400,4800,7200,
 *                       9600,14400,19200,28800,38400,57600,115200,230400,460800
 *                       for the UART_PORT1 support auto-baud rate, when the baud set to 0.
 *
-*                       This parameter don't take,effect on the VIRTUAL_PORT1,VIRTUAL_PORT2,just set to 0
-*
-*               [in]flowCtrl:   
-*                       one value of Enum_FlowCtrl, used for the physical UART's flow control.
-*                       the hardware flow control(FC_HW)  only supported on the UART_PORT1,
-*                       other port not support hardware flow control.
-*                       This parameter don't take,effect on the VIRTUAL_PORT1,VIRTUAL_PORT2,just set to FC_NONE
+*               flowCtrl:   
+*                       [in] one value of Enum_FlowCtrl, used for the physical UART's flow control.
+*                       		the hardware flow control(FC_HW) only supported on the UART_PORT1,
+*					other ports not support hardware flow control.
 *
 * Return:        
 *               QL_RET_OK indicates success; otherwise failure.       
@@ -164,12 +168,12 @@ s32 Ql_UART_Open(Enum_SerialPort port,u32 baudrate, Enum_FlowCtrl flowCtrl);
 *                       Include baud rate,data bits,stop bits,parity,and flow control
 *                       only physical UART1(UART_PORT1) have the hardware flow control
 *
-*                       This parameter don't take effect on the VIRTUAL_PORT1,VIRTUAL_PORT2
-*                       just set to NULL.
-*
 * Return:        
-*               QL_RET_OK indicates success; otherwise failure.    
-*
+*               QL_RET_OK, this function executed successfully.
+*		    QL_RET_ERR_PARAM, the serial port does not register the corresponding callback function.
+*		    QL_RET_ERR_UART_BUSY, the serial port has being opend already.
+*		    QL_RET_ERR_INVALID_PARAMETER, parameter error.
+*		    QL_RET_ERR_INVALID_PORT, the serial port is invaild, not one value of Enum_SerialPort.
 *****************************************************************/
 s32 Ql_UART_OpenEx(Enum_SerialPort port, ST_UARTDCB *dcb);
 
@@ -186,10 +190,6 @@ s32 Ql_UART_OpenEx(Enum_SerialPort port, ST_UARTDCB *dcb);
 *               EVENT_UART_READY_TO_WRITE later. 
 *               After receiving this Event Application can continue to send data, 
 *               and previously unsent data should be resend.
-*
-*               NOTE:
-*               The RX/TX buffer size of VIRTUAL_PORT1 and VIRTUAL_PORT2 both are 1024-byte,
-*               So the number of bytes to write should generally not more than 1024.
 *  
 * Parameters:
 *               [in] port:
@@ -249,6 +249,67 @@ s32 Ql_UART_Read(Enum_SerialPort port, u8* data, u32 readLen);
 *
 *****************************************************************/
 void Ql_UART_Close(Enum_SerialPort port);
+
+
+/*****************************************************************
+* Function:     Ql_UART_GetOption 
+* 
+* Description:
+*               This function used for getting the UART option. such as send or receive bytes in the buffer, 
+*  Judging that TX data has been sent out.
+* Parameters:
+*              [in]port:
+*                       Port name
+*              [in]opt:
+*                       one value of Enum_UARTOption
+*
+* Return:  opt as follows,      
+*        UART_RX_BUF_RECEIVE_BYTES: return a value of receve bytes in the RX buffer.
+*        UART_TX_BUF_SEND_SPACES : return a value of available space in the TX buffer
+*        UART_TX_BUF_SEND_OUT: TRUE,Data has been sent out.  FALSE,Data is still being sent.
+*
+*****************************************************************/
+s32 Ql_UART_GetOption(Enum_SerialPort port,Enum_UARTOption opt);
+
+/*****************************************************************
+* Function:  Ql_RS485_Open 
+* 
+* Description:
+*              Open the 485 Control pin,  when a specific uart port start data and send out all the data, the control pin will automatically change the level status.
+* Parameters:
+*              [in]port:
+*                       Port name
+*              [in]pinname:
+*                       one value of Enum_PinName
+*              [in]level:
+*                       one value of Enum_PinLevel.default gpio level.
+*               
+* Return:        
+*               QL_RET_OK indicates success; otherwise failure.   
+*
+*Note:
+*               Before start write data, the control pins will be set high level automatically. When all the data is sent out, 
+*         it will be switched to the low level automatically.
+*
+*****************************************************************/
+s32 Ql_RS485_Open(Enum_SerialPort port,Enum_PinName pinname,Enum_PinLevel level);
+
+/*****************************************************************
+* Function:     Ql_RS485_Close 
+* 
+* Description:
+*             Release 485 control pin which a specific uart port.
+* Parameters:
+*              [in]port:
+*                       Port name
+*              [in]pinname:
+*                       one value of Enum_PinName
+*
+* Return:        
+*               QL_RET_OK indicates success; otherwise failure.   
+*
+*****************************************************************/
+s32 Ql_RS485_Close(Enum_SerialPort port,Enum_PinName pinname);
 
 #endif  // End-of __QL_UART_H__
 

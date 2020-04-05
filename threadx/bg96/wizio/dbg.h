@@ -1,5 +1,4 @@
 /*
-  BG96 - debug
     Created on: 01.01.2019
     Author: Georgi Angelov
 
@@ -25,30 +24,31 @@ extern "C"
 {
 #endif
 
-
 #include "common.h"
 #include "snprintf.h"
-#include "qapi_uart.h"
+#include <qapi_uart.h>
 #include <stdarg.h>
 #include <string.h>
+
+
+//#define ENABLE_DEBUG
+
+//#define ENABLE_TRACE
+
 
 void debug_enable(void * uartPort);
 void debug_disable(void);
 int log_printf(const char *frm, ...);
 void log_buf(const char *text, const unsigned char *buf, unsigned int len);
 
-#define ENABLE_DEBUG
-#define ENABLE_TRACE
-
 #ifdef ENABLE_DEBUG
 #   define DBG(FORMAT, ...)         log_printf(FORMAT, ##__VA_ARGS__)
 #   define DMP(TEXT, BUFFER, LEN)   log_buf(TEXT, (unsigned char *)BUFFER, LEN)
-#   define LOG_E(FORMAT, ...)       log_printf("[ERROR] " FORMAT "\n", ##__VA_ARGS__)
+#   define LOG_E(FORMAT, ...)       log_printf("[E] " FORMAT "\n", ##__VA_ARGS__)
 #   define LOG_V(FORMAT, ...)       log_printf("[V] " FORMAT "\n", ##__VA_ARGS__) 
 #   define LOG_D(FORMAT, ...)       log_printf("[D] " FORMAT "\n", ##__VA_ARGS__) 
 #   define LOG_I(FORMAT, ...)       log_printf("[I] " FORMAT "\n", ##__VA_ARGS__) 
 #   define LOG_W(FORMAT, ...)       log_printf("[W] " FORMAT "\n", ##__VA_ARGS__) 
-
 #else
 #   define DBG(FORMAT, ...) 
 #   define DMP(TEXT, BUFFER, LEN)

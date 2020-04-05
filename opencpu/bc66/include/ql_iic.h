@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -56,9 +56,15 @@ typedef enum {
 *               chnnlNo:
 *                   [In] IIC channel No, the range is 0~254
 *               pinSCL:
-*                   [In] IIC SCL pin.
+*                   [in] IIC SCL pin.
+*				  Must be PINNAME_RI pin under hardware IIC,  
+*				  while simulate IIC can select any one value of Enum_PinName.
+*
 *               pinSDA:
-*                   [In] IIC SDA pin.
+*                   [in] IIC SDA pin.
+*				  Must be PINNAME_DCD pin under hardware IIC,  
+*				  while simulate IIC can select any one value of Enum_PinName.
+
 *               IICtype:
 *                   [In] IIC type,FALSE means simulate IIC, TRUE means hardware IIC.
 

@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -44,21 +44,37 @@ typedef enum {
     URC_SYS_BEGIN = 0,
     URC_SYS_INIT_STATE_IND,     // Indication for module initialization state during boot stage, see also "Enum_SysInitState".
     URC_SIM_CARD_STATE_IND,     // Indication for SIM card state (state change), see also "Enum_SIMState".
-    URC_GSM_NW_STATE_IND,       // Indication for GSM  network state (state change), see also "Enum_NetworkState".
-    URC_GPRS_NW_STATE_IND,      // Indication for GPRS network state (state change), see also "Enum_NetworkState".
     URC_EGPRS_NW_STATE_IND,     // Indication for EGPRS network state (state change), see also "Enum_NetworkState".
     URC_CFUN_STATE_IND,         // Indication for CFUN state, see also "Enum_CfunState".
-    URC_COMING_CALL_IND,        // Indication for coming call.
-    URC_CALL_STATE_IND,         // Indication for call state (state change), see also "Enum_CallState".
     URC_NEW_SMS_IND,            // Indication for new short message.
-    URC_MODULE_VOLTAGE_IND,     // Indication for abnormal voltage of module supply power.
 	URC_ALARM_RING_IND,		    // Indication for clock alarm
 	URC_SOCKET_RECV_DATA,       // Indication for recv data from server
+	URC_SOCKET_OPEN,            // Indication for open a network for tcp/udp client.
 	URC_SOCKET_CLOSE,           // Indication for close socket from server
-	URC_LwM2M_RECV_DATA,        // Indication for  recv data from server
-	URC_LwM2M_OBSERVE,          // Indication for recv observe
 	URC_PSM_EVENT,              //Indication for psm event
-    URC_SYS_END = 100,
+	URC_MQTT_OPEN,              // Indication for open a network for MQTT client.
+	URC_MQTT_CONN,              // Indication for requests a connection to MQTT server.
+	URC_MQTT_SUB,               // Indication for subscribe one or more topics.
+	URC_MQTT_PUB,               // Indication for publish messages to a servers.
+	URC_MQTT_TUNS,              // Indication for unsubscribe  one or more topics.
+	URC_MQTT_STATE,             // Indicate State Change in MQTT Link Layer.
+	URC_MQTT_CLOSE,             // Indication for Close a Client for MQTT Client.
+	URC_MQTT_DISC,              // Indication for Disconnect a Client from MQTT Server.
+	URC_LWM2M_REG,              // Indication for send a register request to IoT platform.
+	URC_LWM2M_UPDATE,           // Indication for send an update request to the IoT platform. 	
+	URC_LWM2M_DEREG,            // Indication for send a deregister request to the IoT platform.
+	URC_LWM2M_STATUS,           // Indication for query current lwm2m status.
+	URC_LWM2M_NOTIFY,           // Indication for notify result.
+	URC_LWM2M_PING,             // Indication for notify periodic ping result.
+	URC_LWM2M_OBSERVE_REQ,      // Indication for observe request from server. 	
+	URC_LWM2M_OBSERVE_RSQ,		// Indication for observe response from the module.
+	URC_LWM2M_READ_REQ,         // Indication for read request from server.
+	URC_LWM2M_READ_RSQ,			// Indication for read response from the module.
+	URC_LWM2M_WRITE_REQ, 		// Indication for write request from server.
+	URC_LWM2M_WRITE_RSQ, 		// Indication for write response from the module.
+	URC_LWM2M_EXECUTE_REQ,      // Indication for execute execute from server.
+	URC_LWM2M_EXECUTE_RSQ,		// Indication for execute execute from server.
+    URC_SYS_END = 100, 
     /*****************************************/
     /* System URC definition end             */
     /*****************************************/
@@ -120,27 +136,48 @@ typedef enum {
 /******************************************************************************
 * Define socekt recv param
 ******************************************************************************/
-#define SOCKET_RECV_BUFFER_LENGTH  1200
+#define RECV_BUFFER_LENGTH  1200
+
 typedef struct{
-	u8 recv_buffer[SOCKET_RECV_BUFFER_LENGTH];
-    u8 connectID;
-	s32 recv_length;
-	u8 access_mode;
-}Socket_Recv_Param_t;
+    u8 connectID;   //Socket service index. The range is 0-4.
+	u32 recv_length; //recv data length
+	u32 error_no;    //error number.
+	u8 access_mode;  // access mode, direct or buffer mode.
+	u8 recv_buffer[RECV_BUFFER_LENGTH]; //recv buffer
+}Socket_Urc_Param_t;
 
 /******************************************************************************
 * Define lwm2m param
 ******************************************************************************/
-#define LWM2M_RECV_BUFFER_LENGTH  1200
 typedef struct{
-    bool observe_flag;
-	u32 obj_id;
-	u32 ins_id;
-	u32 res_num;
-	u8 recv_buffer[LWM2M_RECV_BUFFER_LENGTH];
-	u32 recv_length;
-	u8 access_mode;
+	u32 msgid;	// message id
+	u32 obj_id; //object id
+	u32 ins_id; //instance id.
+	s32 res_id;  //Resources id.
+	u32 res_num; //resource number.
+	bool observe_flag;	 //Indicates whether or not to observe.0  Observe	1  Cancel observe
+	u8	result_code;   //result code
+	u8	error_code;    //error code
+	u8 update_status;  //update status.  
 }Lwm2m_Urc_Param_t;
+
+
+/******************************************************************************
+* Define mqtt param
+******************************************************************************/
+#define MQTT_MAX_TOPIC    (9)  //Users can configure other values
+typedef struct{
+  u32 connectid; //MQTT socket identifier. The range is 0-5.
+  u32 msgid;     //msgid
+  s32 result;    //Result of the command execution.
+  u8 mqtt_state; //mqtt status.
+  u8 connect_code;//Connect return code
+  u32 pub_value;    //If <result> is 1, it means the times of packet retransmission.  If <result> is 0 or 2, it will not be presented
+  u32 sub_value[MQTT_MAX_TOPIC];//If <result> is 0, it is a vector of granted QoS levels. if  the value is 128, indicating that the subscription was rejected by the server. 
+                                //If <result> is 1, it means the times of packet retransmission.
+                                //If <result> is 2, it will not be presented.
+}MQTT_Urc_Param_t;
+
 
 
 /******************************************************************************

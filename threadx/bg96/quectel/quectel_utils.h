@@ -11,7 +11,7 @@
 #include "stdarg.h"
 #include "qapi_diag.h"
 
-#define QUECTEL_IOT_DEBUG
+#define DONT_USE_THIS____QUECTEL_IOT_DEBUG
 
 void quectel_format_log_msg
 (

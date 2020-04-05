@@ -119,8 +119,9 @@ when         who     what, where, why
 
 //QuectelModifyFlag
 /*this is used in spi transfer callback function*/
-typedef enum SpiTransferStatus SpiTransferStatus;
-enum SpiTransferStatus
+//typedef enum SpiTransferStatus SpiTransferStatus;
+//enum SpiTransferStatus
+typedef enum /* edit: WizIO */
 {
    QAPI_SPI_QUEUED = 1,/**< The transaction is queued, will be processed by the core in order in which it arrived.*/
    QAPI_SPI_COMPLETE,/**< The transaction is complete.*/
@@ -133,7 +134,7 @@ enum SpiTransferStatus
 			  The client has to retry the call.*/
    QAPI_SPI_INVALID_ID,/**< An incorrect transfer id was provided while requesting for the status of a transfer.*/
    QAPI_SPI_INVALID_PARAMETER/**< Spi transfer parameter provided by the Client  was invalid.*/
-};
+}SpiTransferStatus;
 
 
 
@@ -426,38 +427,38 @@ qapi_Status_t qapi_SPIM_Close (void *spi_handle);
                                                                     (ULONG) spi_Handle,(ULONG) 0,(ULONG) 0, \
                                                                     (ULONG) 0)
 #define qapi_SPIM_Full_Duplex(spi_Handle, config, desc, \
-                               num_Descriptors, c_Fn, c_Ctxt, \
-                               get_timestamp) \
-                                                                    (UINT) _txm_module_system_call8( \
-                                                                    TXM_QAPI_SPI_FULL_DUPLEX, \
-                                                                    (ULONG)spi_Handle, (ULONG)config, \
-                                                                    (ULONG)desc, (ULONG) num_Descriptors, \
-									                                (ULONG) c_Fn, (ULONG)c_Ctxt, (ULONG) get_timestamp, \
-																	(ULONG) qapi_spi_cb_uspace_dispatcher )																		
+                                                                     num_Descriptors, c_Fn, c_Ctxt, \
+                                                                     get_timestamp) \
+                                                                     (UINT) _txm_module_system_call8( \
+                                                                     TXM_QAPI_SPI_FULL_DUPLEX, \
+                                                                     (ULONG)spi_Handle, (ULONG)config, \
+                                                                     (ULONG)desc, (ULONG) num_Descriptors, \
+									                                          (ULONG) c_Fn, (ULONG)c_Ctxt, (ULONG) get_timestamp, \
+																	                  (ULONG) qapi_spi_cb_uspace_dispatcher )																		
 //QuectelModifyFlag
 #define qapi_SPIM_Close(spi_Handle)          \
-                                                                   (UINT) _txm_module_system_call4( \
-                                                                    TXM_QAPI_SPI_CLOSE, \
-                                                                    (ULONG) spi_Handle, (ULONG) 0,(ULONG) 0, \
-                                                                    (ULONG) 0)	
+                                                                     (UINT) _txm_module_system_call4( \
+                                                                     TXM_QAPI_SPI_CLOSE, \
+                                                                     (ULONG) spi_Handle, (ULONG) 0,(ULONG) 0, \
+                                                                     (ULONG) 0)	
 
-
-int qapi_spi_cb_uspace_dispatcher(UINT cb_id, void *app_cb,
-									UINT cb_param1, UINT cb_param2,
-									UINT cb_param3, UINT cb_param4,
-									UINT cb_param5, UINT cb_param6,
-									UINT cb_param7, UINT cb_param8)
+/* edit: WizIO */
+static inline int qapi_spi_cb_uspace_dispatcher(UINT cb_id, void *app_cb,
+								UINT cb_param1, UINT cb_param2,
+								UINT cb_param3, UINT cb_param4,
+								UINT cb_param5, UINT cb_param6,
+								UINT cb_param7, UINT cb_param8)
 {
-        qapi_SPIM_Callback_Fn_t (*pfn_app_cb1) (uint32_t, void *);
+   qapi_SPIM_Callback_Fn_t (*pfn_app_cb1) (uint32_t, void *);
+   if(cb_id == TXM_QAPI_SPI_CB_NOTIFY) // custom cb-type1
+   {
+      pfn_app_cb1 = (qapi_SPIM_Callback_Fn_t (*)(uint32_t, void *))app_cb;
+      (pfn_app_cb1)((uint32_t)cb_param1, (void *)cb_param2);
 
-        if(cb_id == TXM_QAPI_SPI_CB_NOTIFY) // custom cb-type1
-        {
-                pfn_app_cb1 = (qapi_SPIM_Callback_Fn_t (*)(uint32_t, void *))app_cb;
-                (pfn_app_cb1)((uint32_t)cb_param1, (void *)cb_param2);
-
-        }
-		return 0;
+   }
+	return 0;
 }
+
 
 
 #else   // DEF_END

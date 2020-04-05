@@ -142,22 +142,14 @@ when         who   what, where, why
 
 
 /* CALLBACK DISPACTCHER */
-int qapi_custom_cb_ADC_dispatcher(UINT cb_id, void *app_cb, 
-									 UINT cb_param1, UINT cb_param2, 
-									 UINT cb_param3, UINT cb_param4,
-									 UINT cb_param5, UINT cb_param6,
-									 UINT cb_param7, UINT cb_param8);
-
-
-/*WizIO    								 
-int qapi_custom_cb_ADC_dispatcher(UINT cb_id, void *app_cb, 
-									 UINT cb_param1, UINT cb_param2, 
-									 UINT cb_param3, UINT cb_param4,
-									 UINT cb_param5, UINT cb_param6,
-									 UINT cb_param7, UINT cb_param8)
+/* edit: WizIO */								 
+static inline int qapi_custom_cb_ADC_dispatcher(UINT cb_id, void *app_cb, 
+									UINT cb_param1, UINT cb_param2, 
+									UINT cb_param3, UINT cb_param4,
+									UINT cb_param5, UINT cb_param6,
+									UINT cb_param7, UINT cb_param8)
 {
 	qapi_AdcTM_Threshold_Cb_Type  pfn_app_cb1;
-	
 	if(cb_id == TXM_QAPI_ADC_AMP_THRESHOLD_CB)
 	{
 		pfn_app_cb1 = (qapi_AdcTM_Threshold_Cb_Type)app_cb;
@@ -172,8 +164,7 @@ int qapi_custom_cb_ADC_dispatcher(UINT cb_id, void *app_cb,
 	}
 	return 0;
 }
-*/
-
+               
 /* API Definitions */
 
 #define qapi_ADC_Open(Handle, Attributes)\

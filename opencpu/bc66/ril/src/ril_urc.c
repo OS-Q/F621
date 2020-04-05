@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -38,14 +38,15 @@
 #include "ql_common.h"
 #include "ql_uart.h"
 #include "ql_type.h"
-#include "ril_lwm2m.h"
 #include "ril_socket.h"
 #include "ril_system.h"
+#include "ril_dfota.h"
+#include "ril_network.h"
 
 #ifdef __OCPU_RIL_SUPPORT__
 
 
-#define RIL_URC_DEBUG_ENABLE 1
+#define RIL_URC_DEBUG_ENABLE 0
 #if RIL_URC_DEBUG_ENABLE > 0
 #define RIL_URC_DEBUG_PORT  UART_PORT0
 static char DBG_Buffer[1024];
@@ -60,10 +61,14 @@ static char DBG_Buffer[1024];
 /************************************************************************/
 #define URC_RCV_TASK_ID  main_task_id
 
-Socket_Recv_Param_t socket_recv_param= {{0},0,0,0};
+/************************************************************************/
+/* Definition for URC param.                                  */
+/************************************************************************/
+Socket_Urc_Param_t socket_urc_param= {0,0,0,255,{0}};  //tcp or udp
 
-Lwm2m_Urc_Param_t  lwm2m_urc_param = {0,0,0,0,{0},0,0};
-							
+Lwm2m_Urc_Param_t  lwm2m_urc_param = {0,0,0,-1,0,0,255,255,255};//lwm2m
+
+MQTT_Urc_Param_t   mqtt_urc_param =  {0,0,255,255,255,255,{255}}; //mqtt
 
 /************************************************************************/
 /* Declarations for URC handler.                                        */
@@ -72,14 +77,35 @@ static void OnURCHandler_Network(const char* strURC, void* reserved);
 static void OnURCHandler_SIM(const char* strURC, void* reserved);
 static void OnURCHandler_CFUN(const char* strURC, void* reserved);
 static void OnURCHandler_InitStat(const char* strURC, void* reserved);
+/********************PSM***********************************************/
 static void OnURCHandler_NbiotEvent(const char* strURC, void* reserved);
+
 /*************** ***TCP &&UDP********************************************/
 static void OnURCHandler_QIURC_DATA(const char* strURC, void* reserved);
+static void OnURCHandler_QIURC_OPEN(const char* strURC, void* reserved);
 
 /*************** ***LWM2M********************************************/
-static void OnURCHandler_LwM2M_RECV_DATA(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_REG(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_UPDATE(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_DEREG(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_URC(const char* strURC, void* reserved); 
 static void OnURCHandler_LwM2M_OBSERVE(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_READ(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_WRITE(const char* strURC, void* reserved);
+static void OnURCHandler_LwM2M_EXECUTE(const char* strURC, void* reserved);
 
+/*************** ***DFOTA***************************************/
+static void OnURCHandler_DFOTA_Hander  (const char* strURC, void* reserved);
+
+/*************** ***MQTT********************************************/
+static void OnURCHandler_MQTT_OPEN(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_CONN(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_SUB(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_PUB(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_TUNS(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_STATE(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_CLOSE(const char* strURC, void* reserved);
+static void OnURCHandler_MQTT_DISC(const char* strURC, void* reserved);
 
 
 /************************************************************************/
@@ -100,13 +126,12 @@ static void OnURCHandler_LwM2M_OBSERVE(const char* strURC, void* reserved);
 *         +QABC:xxx   (response2) --> this is the final result which is reported by URC.
 *     When calling Ql_RIL_SendATCmd() to send such AT command, the return value of 
 *     Ql_RIL_SendATCmd indicates the response1, and the response2 may be reported
-*     via the callback function. Especially for some AT commands that the time span
-*     between response1 and response2 is very long, such as AT+QHTTPDL, AT+QFTPGET.
+*     via the callback function. 
 ******************************************************************************/
 /****************************************************/
 /* Definitions for system URCs and the handler      */
 /****************************************************/
-static const ST_URC_HDLENTRY m_SysURCHdlEntry[] = {
+const static ST_URC_HDLENTRY m_SysURCHdlEntry[] = {
 
 
     //Network status unsolicited response
@@ -125,10 +150,27 @@ static const ST_URC_HDLENTRY m_SysURCHdlEntry[] = {
 /****************************************************/
 /* Definitions for AT URCs and the handler          */
 /****************************************************/
-static const ST_URC_HDLENTRY m_AtURCHdlEntry[] = {
+const static ST_URC_HDLENTRY m_AtURCHdlEntry[] = {
 	{"\r\n+QIURC:",                               OnURCHandler_QIURC_DATA},
-	{"\r\n+QLWDATARECV:",                         OnURCHandler_LwM2M_RECV_DATA},
-	{"\r\n+QLWOBSERVE:",						  OnURCHandler_LwM2M_OBSERVE},
+	{"\r\n+QIOPEN:",                              OnURCHandler_QIURC_OPEN},
+	{"\r\n+QIND: \"FOTA\"",                       OnURCHandler_DFOTA_Hander},	
+	{"\r\n+QMTOPEN:",                             OnURCHandler_MQTT_OPEN},
+	{"\r\n+QMTCONN:",                             OnURCHandler_MQTT_CONN},
+	{"\r\n+QMTSUB:",                              OnURCHandler_MQTT_SUB},
+    {"\r\n+QMTPUB:",                              OnURCHandler_MQTT_PUB},
+	{"\r\n+QMTUNS:",                              OnURCHandler_MQTT_TUNS},
+	{"\r\n+QMTSTAT:",                             OnURCHandler_MQTT_STATE},
+	{"\r\n+QMTCLOSE:",                            OnURCHandler_MQTT_CLOSE},
+	{"\r\n+QMTDISC:",                             OnURCHandler_MQTT_DISC},
+	{"\r\n+QLWREG:",                              OnURCHandler_LwM2M_REG},
+	{"\r\n+QLWUPDATE:",                           OnURCHandler_LwM2M_UPDATE},
+	{"\r\n+QLWDEREG:",                            OnURCHandler_LwM2M_DEREG},
+	{"\r\n+QLWURC:",                              OnURCHandler_LwM2M_URC},
+	{"\r\n+QLWOBSRSP:",                           OnURCHandler_LwM2M_OBSERVE},
+	{"\r\n+QLWRDRSP:",                            OnURCHandler_LwM2M_READ},
+	{"\r\n+QLWWRRSP:",							  OnURCHandler_LwM2M_WRITE},
+	{"\r\n+QLWEXERSP:",                           OnURCHandler_LwM2M_EXECUTE},
+
 };
 
 static void OnURCHandler_QIURC_DATA(const char* strURC, void* reserved)
@@ -140,10 +182,11 @@ static void OnURCHandler_QIURC_DATA(const char* strURC, void* reserved)
 	s32 ret;
 	u8 strTmp[10];
 	u32 recv_length = *(char*)reserved;
+	
     p1 = Ql_strstr(strURC, "+QIURC:");
 	p1 += Ql_strlen("+QIURC: ");
 	recv_length -= (Ql_strlen("+QIURC: ") + 2);   // two means head '\r\n'
-	char* param_buffer = (u8*)Ql_MEM_Alloc(SOCKET_RECV_BUFFER_LENGTH);
+	char* param_buffer = (u8*)Ql_MEM_Alloc(RECV_BUFFER_LENGTH);
 	char* param_list[20];
 	
 	/*----------------------------------------------------------------*/
@@ -159,35 +202,35 @@ static void OnURCHandler_QIURC_DATA(const char* strURC, void* reserved)
 	    ret = QSDK_Get_Str(p1,strTmp,0);
 		if(Ql_memcmp(strTmp,"\"recv\"",Ql_strlen("\"recv\"")) == 0)
 		{
-			socket_recv_param.connectID = Ql_atoi(param_list[1]);
-			socket_recv_param.recv_length = Ql_atoi(param_list[2]);
+			socket_urc_param.connectID = Ql_atoi(param_list[1]);
+			socket_urc_param.recv_length = Ql_atoi(param_list[2]);
 			if ( param_num == 4)
 			{
 				char* recv_buffer = param_list[3];
-				Ql_memset(socket_recv_param.recv_buffer, 0x0, SOCKET_RECV_BUFFER_LENGTH);
+				Ql_memset(socket_urc_param.recv_buffer, 0x0, RECV_BUFFER_LENGTH);
 				if ( recv_data_format == 0 ) //text
 				{
-					Ql_memcpy(socket_recv_param.recv_buffer, recv_buffer, socket_recv_param.recv_length);
+					Ql_memcpy(socket_urc_param.recv_buffer, recv_buffer, socket_urc_param.recv_length);
 				}
 				else if ( recv_data_format == 1 ) //hex
 				{
-					Ql_memcpy(socket_recv_param.recv_buffer, recv_buffer, socket_recv_param.recv_length*2);
+					Ql_memcpy(socket_urc_param.recv_buffer, recv_buffer, socket_urc_param.recv_length*2);
 				}
-				socket_recv_param.access_mode = SOCKET_ACCESS_MODE_DIRECT;
+				socket_urc_param.access_mode = SOCKET_ACCESS_MODE_DIRECT;
 			}
 			else 
 			{
-				socket_recv_param.access_mode = SOCKET_ACCESS_MODE_BUFFER;
+				socket_urc_param.access_mode = SOCKET_ACCESS_MODE_BUFFER;
 			}
-			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SOCKET_RECV_DATA, (u32)&socket_recv_param);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SOCKET_RECV_DATA, &socket_urc_param);
 		}
 		else if(Ql_memcmp(strTmp,"\"closed\"",Ql_strlen("\"closed\"")) == 0)
 		{
 			Ql_memset(strTmp, 0x0,  sizeof(strTmp));
 		    QSDK_Get_Str(p1,strTmp,1);
-			socket_recv_param.connectID = Ql_atoi(strTmp);
+			socket_urc_param.connectID = Ql_atoi(strTmp);
 	
-			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SOCKET_CLOSE,socket_recv_param.connectID);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SOCKET_CLOSE,socket_urc_param.connectID);
 		}
 
     }
@@ -200,91 +243,32 @@ static void OnURCHandler_QIURC_DATA(const char* strURC, void* reserved)
 }
 
 
-static void OnURCHandler_LwM2M_RECV_DATA(const char* strURC, void* reserved)
+static void OnURCHandler_QIURC_OPEN(const char* strURC, void* reserved)
 {
-    /*----------------------------------------------------------------*/
-    /* Local Variables                                                */
-    /*----------------------------------------------------------------*/
-    char* p1 = NULL;
-    p1 = Ql_strstr(strURC, "\r\n+QLWDATARECV:");
-	p1 += Ql_strlen("\r\n+QLWDATARECV:");
-	p1++;
-	char* param_buffer = (u8*)Ql_MEM_Alloc(LWM2M_RECV_BUFFER_LENGTH);
-	char* param_list[20];
-	
-	/*----------------------------------------------------------------*/
-	/* Code Body													  */
-	/*----------------------------------------------------------------*/
-    if (p1)
-    {				
-		u32 param_num = open_lwm2m_param_parse_cmd(p1, param_buffer, param_list, 20); 
-		lwm2m_urc_param.obj_id = Ql_atoi(param_list[0]);
-		lwm2m_urc_param.ins_id = Ql_atoi(param_list[1]);
-		lwm2m_urc_param.res_num = Ql_atoi(param_list[2]);
-		lwm2m_urc_param.recv_length = Ql_atoi(param_list[3]);
-		if ( param_num == 5 )
-		{
-			char* recv_buffer = param_list[4];
-			extern bool g_LWM2M_RECV_DATA_MODE;	
-			
-			Ql_memset(lwm2m_urc_param.recv_buffer, 0x0, LWM2M_RECV_BUFFER_LENGTH);
-			if ( g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_TEXT )
-			{
-				Ql_memcpy(lwm2m_urc_param.recv_buffer, recv_buffer, lwm2m_urc_param.recv_length);
-			}
-			else if ( g_LWM2M_RECV_DATA_MODE == LWM2M_DATA_FORMAT_HEX )
-			{
-				Ql_memcpy(lwm2m_urc_param.recv_buffer, recv_buffer, Ql_strlen(recv_buffer) );
-			}
-			lwm2m_urc_param.access_mode = LWM2M_ACCESS_MODE_DIRECT;
-		}
-		else 
-		{
-			lwm2m_urc_param.access_mode = LWM2M_ACCESS_MODE_BUFFER;
-		}
-		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LwM2M_RECV_DATA, (u32)&lwm2m_urc_param);  
-    }
-
-	if ( param_buffer != NULL )
-	{
-		Ql_MEM_Free(param_buffer);
-		param_buffer = NULL;
-	}
-}
-
-static void OnURCHandler_LwM2M_OBSERVE(const char* strURC, void* reserved)
-{
-    char* p1 = NULL;
+	char* p1 = NULL;
 	char* p2 = NULL;
-    s32 res_id;
 	char strTmp[10];
-    p1 = Ql_strstr(strURC, "\r\n+QLWOBSERVE:");
-	p1 += Ql_strlen("\r\n+QLWOBSERVE:");
+	
+	p1 = Ql_strstr(strURC, "+QIOPEN:");
+	p1 += Ql_strlen("+QIOPEN:");
 	p1++;
 	p2 = Ql_strstr(p1, "\r\n");
 	*p2 = '\0';
-    if (p1)
-    {
-		  Ql_memset(strTmp, 0x0,  sizeof(strTmp));
-		  QSDK_Get_Str(p1,strTmp,0);
-		  lwm2m_urc_param.observe_flag= Ql_atoi(strTmp);
 
-		  Ql_memset(strTmp, 0x0,  sizeof(strTmp));
-		  QSDK_Get_Str(p1,strTmp,1);
-		  lwm2m_urc_param.obj_id= Ql_atoi(strTmp);
-
-		  Ql_memset(strTmp, 0x0,  sizeof(strTmp));
-		  QSDK_Get_Str(p1,strTmp,2);
-		  lwm2m_urc_param.ins_id= Ql_atoi(strTmp);
-
-		  Ql_memset(strTmp, 0x0,  sizeof(strTmp));
-		  QSDK_Get_Str(p1,strTmp,3);
-		  lwm2m_urc_param.res_num= Ql_atoi(strTmp);
-          Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LwM2M_OBSERVE, (u32)&lwm2m_urc_param);
-    }
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		socket_urc_param.connectID= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		socket_urc_param.error_no= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SOCKET_OPEN, &socket_urc_param);	
+	}
 
 }
-
 
 static void OnURCHandler_SIM(const char* strURC, void* reserved)
 {
@@ -292,8 +276,7 @@ static void OnURCHandler_SIM(const char* strURC, void* reserved)
     char* p2 = NULL;
     char strTmp[20];
     s32 len;
-    extern s32 RIL_SIM_GetSimStateByName(char* simStat, u32 len);
-
+	
     Ql_memset(strTmp, 0x0, sizeof(strTmp));
     len = Ql_sprintf(strTmp, "\r\n+CPIN: ");
     if (Ql_StrPrefixMatch(strURC, strTmp))
@@ -303,17 +286,14 @@ static void OnURCHandler_SIM(const char* strURC, void* reserved)
         p2 = Ql_strstr(p1, "\r\n");
         if (p1 && p2)
         {
-            u32 cpinStat;
+            Enum_SIMState cpinStat;
             Ql_memset(strTmp, 0x0, sizeof(strTmp));
             Ql_memcpy(strTmp, p1, p2 - p1);
-            cpinStat = (u32)RIL_SIM_GetSimStateByName(strTmp, p2 - p1);
+            cpinStat = RIL_SIM_GetSimStateByName(strTmp, p2 - p1);
             Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_SIM_CARD_STATE_IND, cpinStat);
         }
     }
 }
-
-
-
 
 static void OnURCHandler_Network(const char* strURC, void* reserved)
 {
@@ -382,7 +362,6 @@ static void OnURCHandler_NbiotEvent(const char* strURC, void* reserved)
 {
     Enum_PSM_State psm_state = END_PSM;
 
-	
 	RIL_URC_DEBUG(DBG_Buffer,"OnURCHandler_NbiotEvent(%s)\r\n", strURC);
 	
 	if (Ql_strstr(strURC, "\r\n+QNBIOTEVENT: \"ENTER PSM\"") != NULL)
@@ -390,17 +369,568 @@ static void OnURCHandler_NbiotEvent(const char* strURC, void* reserved)
 		psm_state = ENTER_PSM;
 	}
 	else if (Ql_strstr(strURC, "\r\n+QNBIOTEVENT: \"EXIT PSM\"") != NULL)
-	
 	{
 		psm_state= EXIT_PSM;
 	}
 	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_PSM_EVENT, psm_state);
 }
 
+static void OnURCHandler_DFOTA_Hander  (const char* strURC, void* reserved)
+{
+    Dfota_Upgrade_State upgrade_state = DFOTA_STATE_END;
+	s32 dfota_errno; 
+
+	//RIL_URC_DEBUG(DBG_Buffer,"OnURCHandler_DFOTA_Hander(%s)\r\n", strURC);
+	if (Ql_strstr(strURC, "\r\n+QIND: \"FOTA\"") != NULL)
+	{
+		DFOTA_Analysis(strURC,&upgrade_state,&dfota_errno);
+		if(dfota_errno == 0)//normal
+		{
+            Dfota_Upgrade_States(upgrade_state,0);
+		}
+		else//failed
+		{
+			Dfota_Upgrade_States(upgrade_state,dfota_errno);
+		}
+	}
+}
+
+static void OnURCHandler_MQTT_OPEN(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	
+	p1 = Ql_strstr(strURC, "+QMTOPEN:");
+	p1 += Ql_strlen("+QMTOPEN:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_OPEN, &mqtt_urc_param);	
+	}
+
+}
+static void OnURCHandler_MQTT_CONN(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	
+	p1 = Ql_strstr(strURC, "+QMTCONN:");
+	p1 += Ql_strlen("+QMTCONN:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		if(TRUE == QSDK_Get_Str(p1,strTmp,2))
+		{
+		  mqtt_urc_param.connect_code= Ql_atoi(strTmp);
+		}
+		else
+		{
+			mqtt_urc_param.connect_code= 255;
+		}
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_CONN, &mqtt_urc_param);
+	}
+}
+static void OnURCHandler_MQTT_SUB(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	char i;
+	
+	p1 = Ql_strstr(strURC, "+QMTSUB:");
+	p1 += Ql_strlen("+QMTSUB:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.msgid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,2);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+
+		for(i=0;i<MQTT_MAX_TOPIC;i++)
+        {
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+     		if(TRUE == QSDK_Get_Str(p1,strTmp,(3+i)))
+     		{
+     		  mqtt_urc_param.sub_value[i]= Ql_atoi(strTmp);
+     		}
+     		else
+     		{
+     			mqtt_urc_param.sub_value[i]= 255;
+				break;
+     		}
+		}
+
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_SUB, &mqtt_urc_param);	
+	}
+
+}
+static void OnURCHandler_MQTT_PUB(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+
+	p1 = Ql_strstr(strURC, "+QMTPUB:");
+	p1 += Ql_strlen("+QMTPUB:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+	
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.msgid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,2);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+
+  		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		if(TRUE == QSDK_Get_Str(p1,strTmp,3))
+		{
+		   mqtt_urc_param.pub_value= Ql_atoi(strTmp);
+		}
+		else
+		{
+			mqtt_urc_param.pub_value= 255;
+		}
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_PUB, &mqtt_urc_param);	
+	}
+}
+static void OnURCHandler_MQTT_TUNS(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	
+	p1 = Ql_strstr(strURC, "+QMTUNS:");
+	p1 += Ql_strlen("+QMTUNS:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.msgid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,2);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_TUNS, &mqtt_urc_param);	
+	}
+}
+
+static void OnURCHandler_MQTT_STATE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	
+	p1 = Ql_strstr(strURC, "+QMTSTAT:");
+	p1 += Ql_strlen("+QMTSTAT:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.mqtt_state= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_STATE, &mqtt_urc_param);	
+	}
+}
+static void OnURCHandler_MQTT_CLOSE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	p1 = Ql_strstr(strURC, "+QMTCLOSE:");
+	p1 += Ql_strlen("+QMTCLOSE:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.msgid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,2);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_CLOSE, &mqtt_urc_param);	
+	}
+}
+
+static void OnURCHandler_MQTT_DISC(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char* p2 = NULL;
+	char strTmp[10];
+	
+	p1 = Ql_strstr(strURC, "+QMTDISC:");
+	p1 += Ql_strlen("+QMTDISC:");
+	p1++;
+	p2 = Ql_strstr(p1, "\r\n");
+	*p2 = '\0';
+
+	if (p1)
+	{
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,0);
+		mqtt_urc_param.connectid= Ql_atoi(strTmp);
+		
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,1);
+		mqtt_urc_param.msgid= Ql_atoi(strTmp);
+
+		Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+		QSDK_Get_Str(p1,strTmp,2);
+		mqtt_urc_param.result= Ql_atoi(strTmp);
+		
+		Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_MQTT_DISC, &mqtt_urc_param);	
+	}
+}
+
+
+static void OnURCHandler_LwM2M_REG(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50]; 
+	u32 reg_status = 255;
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWREG:");
+	p1 += Ql_strlen("\r\n+QLWREG:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	reg_status = Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_REG, reg_status); 	 
+	}
+}
+
+static void OnURCHandler_LwM2M_UPDATE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50]; 
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWUPDATE:");
+	p1 += Ql_strlen("\r\n+QLWUPDATE:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	if(TRUE == QSDK_Get_Str(p1,strTmp,1))
+    	{
+			lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+        	QSDK_Get_Str(p1,strTmp,0);
+        	lwm2m_urc_param.update_status= Ql_atoi(strTmp);
+		}
+	    else 
+	    {
+			QSDK_Get_Str(p1,strTmp,0);
+			lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+			lwm2m_urc_param.update_status = 255;
+		}
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_UPDATE, &lwm2m_urc_param); 	 
+	}
+}
+static void OnURCHandler_LwM2M_DEREG(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	u32 dereg_status = 255;
+	char strTmp[50]; 
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWDEREG:");
+	p1 += Ql_strlen("\r\n+QLWDEREG:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	dereg_status = Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_DEREG, dereg_status); 	 
+	}
+}
+
+static void OnURCHandler_LwM2M_URC(const char* strURC, void* reserved)
+{
+    char* p1 = NULL;
+	char strTmp[50]; 
+	u32 ping_status = 255;
+	u32 lw_status = 255;
+	
+    p1 = Ql_strstr(strURC, "\r\n+QLWURC:");
+	p1 += Ql_strlen("\r\n+QLWURC:");
+	p1++;
+
+	if (p1)
+    {	
+	   Ql_memset(strTmp, 0x0,  sizeof(strTmp));
+	   QSDK_Get_Str(p1,strTmp,0); 
+	   RIL_URC_DEBUG(DBG_Buffer,"OnURCHandler_LwM2M_URC(%s)\r\n",strTmp);
+
+	   if(Ql_memcmp(strTmp,"\"ping\"",Ql_strlen("\"ping\"")) == 0)
+	   {
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+			QSDK_Get_Str(p1,strTmp,1);
+			ping_status= Ql_atoi(strTmp);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_PING, ping_status);	
+		} 
+		else if(Ql_memcmp(strTmp,"\"lwstatus\"",Ql_strlen("\"lwstatus\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+			QSDK_Get_Str(p1,strTmp,1);
+			lw_status= Ql_atoi(strTmp);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_STATUS, lw_status);	
+		} 
+		else if(Ql_memcmp(strTmp,"\"observe\"",Ql_strlen("\"observe\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+	        QSDK_Get_Str(p1,strTmp,1);
+		    lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,2);
+    		lwm2m_urc_param.observe_flag= Ql_atoi(strTmp);
+			
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,3);
+    		lwm2m_urc_param.obj_id= Ql_atoi(strTmp);
+			
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,4);
+    		lwm2m_urc_param.ins_id= Ql_atoi(strTmp);
+
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,5);
+    		lwm2m_urc_param.res_id= Ql_atoi(strTmp);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_OBSERVE_REQ, &lwm2m_urc_param) ;
+		} 
+	    else if(Ql_memcmp(strTmp,"\"read\"",Ql_strlen("\"read\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+	        QSDK_Get_Str(p1,strTmp,1);
+		    lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,2);
+    		lwm2m_urc_param.obj_id= Ql_atoi(strTmp);
+			
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,3);
+    		lwm2m_urc_param.ins_id= Ql_atoi(strTmp);
+
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,4);
+    		lwm2m_urc_param.res_id= Ql_atoi(strTmp);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_READ_REQ,&lwm2m_urc_param);	
+		} 
+		else if(Ql_memcmp(strTmp,"\"write\"",Ql_strlen("\"write\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+	        QSDK_Get_Str(p1,strTmp,1);
+		    lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,2);
+    		lwm2m_urc_param.obj_id= Ql_atoi(strTmp);
+			
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,3);
+    		lwm2m_urc_param.ins_id= Ql_atoi(strTmp);
+
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,4);
+    		lwm2m_urc_param.res_id= Ql_atoi(strTmp);
+			
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_WRITE_REQ,&lwm2m_urc_param);	
+		}
+		else if(Ql_memcmp(strTmp,"\"report\"",Ql_strlen("\"report\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,1);
+			lwm2m_urc_param.result_code= 255;
+    		lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_NOTIFY,&lwm2m_urc_param);	
+		}
+		else if(Ql_memcmp(strTmp,"\"report_ack\"",Ql_strlen("\"report_ack\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+	        QSDK_Get_Str(p1,strTmp,1);
+		    lwm2m_urc_param.result_code= Ql_atoi(strTmp);
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,2);
+    		lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_NOTIFY,&lwm2m_urc_param);	
+		}
+		else if(Ql_memcmp(strTmp,"\"execute\"",Ql_strlen("\"execute\"")) == 0)
+		{
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+	        QSDK_Get_Str(p1,strTmp,1);
+		    lwm2m_urc_param.msgid= Ql_atoi(strTmp);
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,2);
+    		lwm2m_urc_param.obj_id= Ql_atoi(strTmp);
+			
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,3);
+    		lwm2m_urc_param.ins_id= Ql_atoi(strTmp);
+
+			Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	    QSDK_Get_Str(p1,strTmp,4);
+    		lwm2m_urc_param.res_id= Ql_atoi(strTmp);
+			Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_EXECUTE_REQ, &lwm2m_urc_param);
+		}
+    }
+}
+
+
+static void OnURCHandler_LwM2M_OBSERVE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50]; 
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWOBSRSP:");
+	p1 += Ql_strlen("\r\n+QLWOBSRSP:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	lwm2m_urc_param.error_code= Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_OBSERVE_RSQ, &lwm2m_urc_param); 	 
+	}
+}
+
+static void OnURCHandler_LwM2M_READ(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50]; 
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWRDRSP:");
+	p1 += Ql_strlen("\r\n+QLWRDRSP:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	lwm2m_urc_param.error_code= Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_READ_RSQ, &lwm2m_urc_param); 	 
+	}
+}
+
+static void OnURCHandler_LwM2M_WRITE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50];
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWWRRSP:");
+	p1 += Ql_strlen("\r\n+QLWWRRSP:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	lwm2m_urc_param.error_code= Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_WRITE_RSQ, &lwm2m_urc_param); 	 
+	}
+}
+
+static void OnURCHandler_LwM2M_EXECUTE(const char* strURC, void* reserved)
+{
+	char* p1 = NULL;
+	char strTmp[50]; 
+	
+	p1 = Ql_strstr(strURC, "\r\n+QLWEXERSP:");
+	p1 += Ql_strlen("\r\n+QLWEXERSP:");
+	p1++;
+	
+	if (p1)
+	{	
+    	Ql_memset(strTmp, 0x0,	sizeof(strTmp));
+    	QSDK_Get_Str(p1,strTmp,0);
+    	lwm2m_urc_param.error_code= Ql_atoi(strTmp);
+    	Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_LWM2M_EXECUTE_RSQ, &lwm2m_urc_param); 	 
+	}
+}
+
 
 static void OnURCHandler_Undefined(const char* strURC, void* reserved)
 {
-
+	//RIL_URC_DEBUG(DBG_Buffer,"OnURCHandler_Undefined(%s)\r\n", strURC);
     Ql_OS_SendMessage(URC_RCV_TASK_ID, MSG_ID_URC_INDICATION, URC_END, 0);
 }
 

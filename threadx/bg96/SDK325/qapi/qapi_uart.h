@@ -225,53 +225,54 @@ typedef int  (*uart_rx_dispatcher_cb)(void *pfnUser_cb, int cb_param1, int cb_pa
 
 
 #ifdef  QAPI_TXM_MODULE     /* USER_MODE_DEFS*/
-#define qapi_UART_Close(handle)          (UINT) _txm_module_system_call5( \
-                                                                    TXM_QAPI_UART_CLOSE, \
-                                                                    (ULONG) handle, (ULONG) 0,\
-                                                                    (ULONG) 0, (ULONG) 0, (ULONG) 0)
-#define qapi_UART_Open(handle, id, config)  (UINT) _txm_module_system_call5(TXM_QAPI_UART_OPEN, (ULONG) handle, (ULONG) id,(ULONG) config, (ULONG) qapi_uart_tx_user_cb_dispatcher, \
-                                                                                (ULONG) qapi_uart_rx_user_cb_dispatcher)
 
-#define qapi_UART_Receive(handle,buf, buf_Size,  cb_Data) \
-                                                            (UINT) _txm_module_system_call5( \
-                                                                    TXM_QAPI_UART_RECIEVE, \
-                                                                    (ULONG) handle, (ULONG) buf,\
-                                                                    (ULONG) buf_Size, (ULONG) cb_Data, (ULONG) 0)
-#define qapi_UART_Transmit( handle, buf, buf_Size,  cb_Data) (UINT) _txm_module_system_call5( TXM_QAPI_UART_TRANSMIT, (ULONG) handle, (ULONG) buf, (ULONG) buf_Size, \
+#define qapi_UART_Close(handle)          (UINT) _txm_module_system_call5( \
+                                                                  TXM_QAPI_UART_CLOSE, \
+                                                                  (ULONG) handle, (ULONG) 0,\
+                                                                  (ULONG) 0, (ULONG) 0, (ULONG) 0)
+
+#define qapi_UART_Open(handle, id, config)  (UINT) _txm_module_system_call5(TXM_QAPI_UART_OPEN, (ULONG) handle, (ULONG) id,(ULONG) config, \
+                                                                  (ULONG) qapi_uart_tx_user_cb_dispatcher, \
+                                                                  (ULONG) qapi_uart_rx_user_cb_dispatcher)
+
+#define qapi_UART_Receive(handle,buf, buf_Size,  cb_Data)  (UINT) _txm_module_system_call5( \
+                                                                  TXM_QAPI_UART_RECIEVE, \
+                                                                  (ULONG) handle, (ULONG) buf,\
+                                                                  (ULONG) buf_Size, (ULONG) cb_Data, (ULONG) 0)
+
+#define qapi_UART_Transmit( handle, buf, buf_Size, cb_Data) (UINT) _txm_module_system_call5( TXM_QAPI_UART_TRANSMIT, (ULONG) handle, (ULONG) buf, (ULONG) buf_Size, \
                                                                                                   (ULONG) cb_Data, (ULONG) 0)
 #define qapi_UART_Power_On( handle)       (UINT) _txm_module_system_call5( \
-                                                                    TXM_QAPI_UART_POWER_ON, \
-                                                                    (ULONG) handle, (ULONG) 0,\
-                                                                    (ULONG) 0, (ULONG) 0, (ULONG) 0)	
-#define qapi_UART_Power_Off( handle)      (UINT) _txm_module_system_call5( \
-                                                                    TXM_QAPI_UART_POWER_OFF, \
-                                                                    (ULONG) handle, (ULONG) 0,\
-                                                                    (ULONG) 0, (ULONG) 0, (ULONG) 0)
-#define qapi_UART_Ioctl( handle,ioctl_Command,ioctl_Param) \
-                                                            (UINT) _txm_module_system_call5( \
-                                                                     TXM_QAPI_UART_IOCTL, \
-                                                                    (ULONG) handle, (ULONG) ioctl_Command,\
-                                                                    (ULONG) ioctl_Param, (ULONG) 0, (ULONG) 0);
+                                                                  TXM_QAPI_UART_POWER_ON, \
+                                                                  (ULONG) handle, (ULONG) 0,\
+                                                                  (ULONG) 0, (ULONG) 0, (ULONG) 0)	
 
-static __inline int qapi_uart_tx_user_cb_dispatcher (UINT cb_id, void *pfnUser_cb,
-									UINT cb_param1, UINT cb_param2)
+#define qapi_UART_Power_Off( handle)      (UINT) _txm_module_system_call5( \
+                                                                  TXM_QAPI_UART_POWER_OFF, \
+                                                                  (ULONG) handle, (ULONG) 0,\
+                                                                  (ULONG) 0, (ULONG) 0, (ULONG) 0)
+                                                                  
+#define qapi_UART_Ioctl( handle,ioctl_Command,ioctl_Param)  (UINT) _txm_module_system_call5( \
+                                                                  TXM_QAPI_UART_IOCTL, \
+                                                                  (ULONG) handle, (ULONG) ioctl_Command,\
+                                                                  (ULONG) ioctl_Param, (ULONG) 0, (ULONG) 0)
+
+
+static inline int qapi_uart_tx_user_cb_dispatcher(UINT cb_id, void *pfnUser_cb, UINT cb_param1, UINT cb_param2)
 {
     qapi_UART_Callback_Fn_t pFnAppCb;
-	pFnAppCb = (qapi_UART_Callback_Fn_t) pfnUser_cb;
-	(pFnAppCb)(cb_param1, (void *) cb_param2);
-
+	  pFnAppCb = (qapi_UART_Callback_Fn_t) pfnUser_cb;
+	  (pFnAppCb)(cb_param1, (void *) cb_param2);
     return 0;
 }
 
-
- static __inline int qapi_uart_rx_user_cb_dispatcher (UINT cb_id,void *pfnUser_cb, int cb_param1, int cb_param2)
- {
+static inline int qapi_uart_rx_user_cb_dispatcher(UINT cb_id,void *pfnUser_cb, int cb_param1, int cb_param2)
+{
     qapi_UART_Callback_Fn_t pFnAppCb;
-	pFnAppCb = (qapi_UART_Callback_Fn_t) pfnUser_cb;
-	(pFnAppCb)(cb_param1, (void *) cb_param2);
- 
-	 return 0;
- }
+	  pFnAppCb = (qapi_UART_Callback_Fn_t) pfnUser_cb;
+	  (pFnAppCb)(cb_param1, (void *) cb_param2);
+	  return 0;
+}
 
 
 #elif defined QAPI_TXM_SOURCE_CODE      // KERNEL_MODE_DEFS

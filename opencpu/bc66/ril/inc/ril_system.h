@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -122,7 +122,6 @@ s32 RIL_QNbiotEvent_Disable(u32 event);
 bool QSDK_Get_Str(char *src_string,  char *dest_string, unsigned char index);
 
 u32 open_param_parse_cmd(const char *cmd_string, const char *param_buffer, char *param_list[], u32 param_max_num);
-u32 open_lwm2m_param_parse_cmd(const char *cmd_string, const char *param_buffer, char *param_list[], u32 param_max_num);
 u32 open_socket_rd_param_parse_cmd(const char *cmd_string, u32 recv_length, const char *param_buffer, char *param_list[], u32 param_max_num);
 u32 open_socket_push_param_parse_cmd(const char *cmd_string, const char *param_buffer, char *param_list[], u32 param_max_num);
 u32 open_socket_push_json_param_parse_cmd(const char *cmd_string, u32 recv_length, const char *param_buffer, char *param_list[], u32 param_max_num);

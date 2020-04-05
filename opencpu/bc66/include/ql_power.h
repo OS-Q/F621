@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -38,7 +38,7 @@
 
 /** @brief This enum defines the power on result. */
 typedef enum {
-    QL_DEEP_SLEEP          = 1,     /* deep sleep */
+    QL_DEEP_SLEEP          = 1,     /* wakeup from deepsleep */
     QL_SYS_RESET           = 2,     /* sys_reset */
     QL_FORCED_SHUT_DOWN    = 3,     /* forced shut down */
     QL_POWER_ON_RESULT_MAX = 3

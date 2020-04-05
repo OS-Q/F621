@@ -109,7 +109,7 @@ when         who     what, where, why
 
 /*@added by Quectel#Louis*/
 /*this is used in spi transfer callback function*/
-//WizIO
+/* edit: WizIO */
 typedef enum SpiTransferStatus
 {
    QAPI_SPI_QUEUED = 1,/**< The transaction is queued, will be processed by the core in order in which it arrived.*/

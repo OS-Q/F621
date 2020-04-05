@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -144,7 +144,7 @@ s32 Ql_SPI_Write(u32 chnnlNo, u8 * pData, u32 len);
 * Function:     Ql_SPI_WriteRead 
 * 
 * Description:
-*               This function is used for SPI full-duplex communication 
+*               This function is used for SPI half-duplex communication 
 *               
 * Parameters:
 *               chnnlNo:
@@ -167,11 +167,12 @@ s32 Ql_SPI_Write(u32 chnnlNo, u8 * pData, u32 len);
 *               QL_RET_ERR_CHANNEL_NOT_FOUND, can't found the SPI channel, make sure it is initialized already.
 *****************************************************************/
 s32 Ql_SPI_WriteRead(u32 chnnlNo, u8 *pData, u32 wrtLen, u8 * pBuffer, u32 rdLen);
+
 /*****************************************************************
 * Function:     Ql_SPI_WriteRead_Ex
 * 
 * Description:
-*               This function is used for SPI full-duplex communication with callback function, only hardware SPI.
+*               This function is used for SPI full-duplex communication,only supports  simulation SPI.
 *               
 * Parameters:
 *               chnnlNo:
@@ -182,15 +183,30 @@ s32 Ql_SPI_WriteRead(u32 chnnlNo, u8 *pData, u32 wrtLen, u8 * pBuffer, u32 rdLen
 *                   [In] Number of bytes to write.
 *               rdLen:
 *                   [In] Number of bytes to read.
-*               callback_spi:
-*                   [In] callback function,which can get recieved data.
+*                pBuffer:
+*                   [out] Store the data that read from the slave device.
 *
 * Return:        
-*               if no error, return 0.
+*              if no error, return the length of the read data.
 *               QL_RET_ERR_PARAM, parameter error.
 *               QL_RET_ERR_CHANNEL_NOT_FOUND, can't found the SPI channel, make sure it is initialized already.
 *****************************************************************/
+s32 Ql_SPI_WriteRead_Ex(u32 chnnlNo,u8 *pData,u32 wrtLen,u8 * pBuffer,u32 rdLen);
 
+/*****************************************************************
+* Function:     Ql_SPI_Uninit 
+* 
+* Description:
+*               This function release the SPI pins.
+*               
+* Parameters:
+*               chnnlNo:
+*                   SPI channel No, the No is specified by Ql_SPI_Init function.
+
+* Return:        
+*                QL_RET_OK, this function succeeds.
+*                QL_RET_ERR_PARAM, parameter error.
+*****************************************************************/
 s32 Ql_SPI_Uninit(u32 chnnlNo);
 
 #endif  //__QL_SPI_H__

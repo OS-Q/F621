@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -72,6 +72,6 @@ typedef enum{
 * Return:        
 *               Number of characters printed
 *****************************************************************/
-extern s32  (*Ql_Debug_Trace)(const char* fmt, ...); // WizIO
+extern s32  (*Ql_Debug_Trace)(char* fmt, ...);
 
 #endif  // #end-of __QL_TRACE_H__

@@ -477,8 +477,7 @@ typedef struct TXM_MODULE_MANAGER_MEMORY_FAULT_INFO_STRUCT
 /* Determine if the pointer is within the module's data or shared memory.  */
 #define TXM_MODULE_MANAGER_CHECK_DATA_POINTER(module_instance, pointer)     
 	
-  //  if(_txm_module_manager_data_pointer_check(pointer))                     \
-  //      return(TXM_MODULE_INVALID_MEMORY);
+  //  if(_txm_module_manager_data_pointer_check(pointer)) return(TXM_MODULE_INVALID_MEMORY);
 
 
 

@@ -248,8 +248,11 @@ qapi_Status_t qapi_PSM_Client_Hc_Ack(int32_t client_id);
 
 
 
-#endif
+#endif // QAPI_TXM_MODULE
 
+#ifdef __cplusplus
+} // close extern "C" edit:WizIO
+#endif
 #endif /* QAPI_PSM_H */
 
 

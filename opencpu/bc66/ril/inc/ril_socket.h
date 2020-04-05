@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -33,6 +33,7 @@
 #ifndef __RIL_SOCKET_H__
 #define __RIL_SOCKET_H__
 #include "ql_type.h"
+#include "ril.h"
 
 #define CONNECTID_MAX    5
 
@@ -82,10 +83,7 @@ s32 remain_length;
 s32  connectID;
 }ST_RIL_SocketParam;
 
-typedef struct{
-	bool temp_send_data_format;
-	bool temp_recv_data_format;	
-}NV_DATA_FORMAT;
+
 /******************************************************************************
 * Function:     RIL_SOC_QIOPEN
 *  

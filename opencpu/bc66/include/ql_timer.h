@@ -4,7 +4,7 @@
 *  This software is protected by Copyright and the information contained
 *  herein is confidential. The software may not be copied and the information
 *  contained herein may not be used or disclosed except with the written
-*  permission of Quectel Co., Ltd. 2013
+*  permission of Quectel Co., Ltd. 2019
 *
 *****************************************************************************/
 /*****************************************************************************
@@ -79,7 +79,7 @@ s32 Ql_Timer_Register(u32 timerId, Callback_Timer_OnTimer callback_onTimer, void
 * Function:     Ql_Timer_RegisterFast 
 * 
 * Description:
-*               Register GP timer,only support one timer under opencpu task.
+*               Register GP timer,only support one timer under opencpu project.
 *
 * Parameters:
 *               timerId:
@@ -159,6 +159,144 @@ s32 Ql_Timer_Start(u32 timerId, u32 interval, bool autoRepeat);
 *    
 *****************************************************************/
 s32 Ql_Timer_Stop(u32 timerId);
+
+/*****************************************************************
+* Function:     Ql_Timer_Delete 
+* 
+* Description:
+*               Delete the timer with the specified timer id. if you want re_register timer id or release current timer id, you can use this API.
+*
+* Parameters:
+*               timerId:
+*                   [in] the timer id. The timer has been started 
+*                   by calling Ql_Timer_Start previously.
+* Return:
+*               QL_RET_OK indicates register ok;
+*               QL_RET_ERR_PARAM indicates the param error.
+*               QL_RET_ERR_INVALID_TIMER indicates that the timer ID is already being used  
+*               or the timer is started or stopped not in the same task with it registered.
+*               QL_RET_ERR_TIMER_FULL indicates all timers are used up.
+*               QL_RET_ERR_INVALID_TASK_ID indicates the task invalid.
+* Notes:
+*               If you register a timer Id in an opencpu task, then you can only start or stop 
+*               the timer in the same task.Otherwise,the timer can not be started or stopped.
+*    
+*****************************************************************/
+s32 Ql_Timer_Delete(u32 timerId);
+
+
+
+
+/*@@@@********************************************************************************************
+*               Here are the microsecond timer-related interfaces
+*
+*/
+/*****************************************************************
+* Function: 	Ql_Timer_Register_us 
+* 
+* Description:
+*				Register GP timer,only support one timer under opencpu project.
+*
+* Parameters:
+*				timerId:
+*						[in] the timer id, you can only set 0x01;
+*							 
+*			      callback_onTimer:
+*						[out] Notify the application when the time of the timer arrives.
+*				param:
+*						[in] Used to pass parameters of customers.
+* Return:
+*				QL_RET_OK indicates register ok;
+*				QL_RET_ERR_PARAM indicates the param error.
+*				QL_RET_ERR_INVALID_TIMER indicates that the timer ID is already being used	
+*				or the timer is started or stopped not in the same task with it registered.
+*				QL_RET_ERR_TIMER_FULL indicates all timers are used up.
+*				QL_RET_ERR_ERROR indicates  other errors.
+* Notes:
+*				If you register a timer Id in an opencpu task, then you can only start or stop 
+*				the timer in the same task.Otherwise,the timer can not be started or stopped.
+*	 
+*****************************************************************/
+s32 Ql_Timer_Register_us(u32 timerId, Callback_Timer_OnTimer callback_onTimer, void* param);
+
+
+/*****************************************************************
+* Function:     Ql_Timer_Start_us 
+* 
+* Description:
+*               Start up a timer with the specified timer id.
+*
+* Parameters:
+*               timerId:
+*                       [in] the timer id, you can only set 0x01;
+*               interval:
+*                       [in] Set the interval of the timer, unit: us.
+*                            the interval must be greater than or equal to 1us.
+*                           
+*               autoRepeat:
+*                       [in] TRUE indicates that the timer is executed repeatedly.
+*                            FALSE indicates that the timer is executed only once.
+* Return:
+*               QL_RET_OK indicates register ok;
+*               QL_RET_ERR_PARAM indicates the param error.
+*               QL_RET_ERR_INVALID_TIMER indicates that the timer ID is already being used  
+*               or the timer is started or stopped not in the same task with it registered.
+*               QL_RET_ERR_TIMER_FULL indicates all timers are used up.
+*		   QL_RET_ERR_ERROR indicates  other errors.
+* Notes:
+*               If you register a timer Id in an opencpu task, then you can only start or stop 
+*               the timer in the same task.Otherwise,the timer can not be started or stopped.
+*    
+*****************************************************************/
+s32 Ql_Timer_Start_us(u32 timerId, u32 interval, bool autoRepeat);
+
+
+/*****************************************************************
+* Function:     Ql_Timer_Stop_us 
+* 
+* Description:
+*               Stop the timer with the specified timer id.
+*
+* Parameters:
+*               timerId:
+*                  [in] the timer id, you can only set 0x01;
+* Return:
+*               QL_RET_OK indicates register ok;
+*               QL_RET_ERR_PARAM indicates the param error.
+*               QL_RET_ERR_INVALID_TIMER indicates that the timer ID is already being used  
+*               or the timer is started or stopped not in the same task with it registered.
+*               QL_RET_ERR_TIMER_FULL indicates all timers are used up.
+*		   QL_RET_ERR_ERROR indicates  other errors.
+* Notes:
+*               If you register a timer Id in an opencpu task, then you can only start or stop 
+*               the timer in the same task.Otherwise,the timer can not be started or stopped.
+*    
+*****************************************************************/
+s32 Ql_Timer_Stop_us(u32 timerId);
+
+
+/*****************************************************************
+* Function:     Ql_Timer_Delete_us 
+* 
+* Description:
+*               Delete the timer with the specified timer id. if you want re_register timer id or release current timer id, you can use this API.
+*
+* Parameters:
+*               timerId:
+*                   [in] the timer id, you can only set 0x01;
+* Return:
+*               QL_RET_OK indicates register ok;
+*               QL_RET_ERR_PARAM indicates the param error.
+*               QL_RET_ERR_INVALID_TIMER indicates that the timer ID is already being used  
+*               or the timer is started or stopped not in the same task with it registered.
+*               QL_RET_ERR_TIMER_FULL indicates all timers are used up.
+*               QL_RET_ERR_ERROR indicates  other errors.
+* Notes:
+*               If you register a timer Id in an opencpu task, then you can only start or stop 
+*               the timer in the same task.Otherwise,the timer can not be started or stopped.
+*    
+*****************************************************************/
+s32 Ql_Timer_Delete_us(u32 timerId);
 
 #endif  // End-of __QL_TIMER_H__
 
