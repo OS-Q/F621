@@ -1,62 +1,72 @@
-/*
-  BC66 - uart
-    Created on: 01.01.2019
-    Author: Georgi Angelov
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA   
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #ifndef HardwareSerial_h
 #define HardwareSerial_h
 
 #include <inttypes.h>
-#include "Stream.h"
-#include <interface.h> 
+#include <Stream.h>
+#include <interface.h>
+#include <os_uart.h>
 
 class HardwareSerial : public Stream
 {
 protected:
-  static void callback(Enum_SerialPort port, Enum_UARTEventType event, bool pinLevel, void *serial);
-  Enum_SerialPort port;
-// BC66
-  QueueHandle_t queue, mutex;
-  void MUTEX_LOCK();
-  void MUTEX_UNLOCK();
+  UART uart;
 
 public:
-  int save(uint8_t c);
-  HardwareSerial(uint32_t id);
-  void debug(void);
-  void nodebug(void);
-  void begin(unsigned long baud, void *user);
-  void begin(unsigned long baud);
-  void end();
-  size_t setRxBufferSize(size_t new_size);
-  virtual int available(void);
-  virtual int peek(void);
-  virtual int read(void);
-  virtual void flush(void);
-  virtual size_t write(uint8_t);
-  inline size_t write(unsigned long n) { return write((uint8_t)n); }
-  inline size_t write(long n) { return write((uint8_t)n); }
-  inline size_t write(unsigned int n) { return write((uint8_t)n); }
-  inline size_t write(int n) { return write((uint8_t)n); }
-  size_t write(const char *buf);
-  size_t write(const uint8_t *buf, size_t size);    
+  HardwareSerial(uint32_t port) { uart = uart_create(port); }
+  ~HardwareSerial() { uart_destroy(uart); }
+
+  void debug(void) { uart_retarget(uart); } // enable printf for this serial
+
+  void begin(unsigned long brg) { uart_open(uart, brg, false); }
+
+  void begin(unsigned long brg, bool retarget) { uart_open(uart, brg, retarget); }
+
+  void begin(ST_UARTDCB *dcb, bool retarget = false)
+  {
+    uart_open_ex(uart, dcb);
+    if (retarget)
+      debug();
+  }
+
+  void end() { uart_close(uart); }
+  virtual int available(void) { return uart_available(uart); }
+  virtual int peek(void) { return uart_peek(uart); }
+  virtual void flush(void)
+  {
+    while (available())
+      ;
+  }
+
+  virtual int read(uint8_t *buf, size_t size) { return uart_read(uart, (char *)buf, size); }
+  virtual int read(void)
+  {
+    uint8_t b;
+    return read(&b, 1) > -1 ? b : -1;
+  }
+
+  virtual size_t write(const uint8_t *buf, size_t size) { return uart_write(uart, (char *)buf, size); }
+  virtual size_t write(uint8_t c) { return write(&c, 1); }
+
   using Print::write;
-  operator bool() { return true; }
+  operator bool() { return 1; }
 };
 
 #endif

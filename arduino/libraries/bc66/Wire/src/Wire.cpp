@@ -1,28 +1,28 @@
-/*
- * TWI/I2C library for Arduino Zero
- * Copyright (c) 2015 Arduino LLC. All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #include <Arduino.h>
 #include "Wire.h"
 
-#define DEBUG_I2C /*DBG*/
+TwoWire Wire(1, 0x01, I2C_FREQUENCY_100K);
 
-#define IIC_TYPE (i2c_port == 1)
+#define DEBUG_I2C 
+//::printf
 
 #define SLC0 PINNAME_GPIO4
 #define SDA0 PINNAME_GPIO5
@@ -30,9 +30,18 @@
 TwoWire::TwoWire(uint8_t port, uint8_t address, u32 brg)
 {
 	i2c_port = port;
-	slaveAddress = address;
+	i2c_address = address << 1; // Arduino is 7bit
 	i2c_speed = brg;
+	i2c_pinC = PINNAME_RI;
+	i2c_pinD = PINNAME_DCD;
 	transmissionBegun = false;
+}
+
+void TwoWire::init(void)
+{
+	Ql_IIC_Uninit(i2c_port);
+	Ql_IIC_Init(i2c_port, i2c_pinC, i2c_pinD, true);
+	Ql_IIC_Config(i2c_port, true, i2c_address, i2c_speed);
 }
 
 void TwoWire::begin(void)
@@ -40,16 +49,15 @@ void TwoWire::begin(void)
 	int res;
 	if (1 == i2c_port)
 	{
-		res = Ql_IIC_Init(i2c_port, PINNAME_RI, PINNAME_DCD, IIC_TYPE);
-		DEBUG_I2C("[I2C] Init HW: %d\n", res);
+		i2c_pinC = PINNAME_RI;
+		i2c_pinD = PINNAME_DCD;
 	}
 	else
 	{
-		res = Ql_IIC_Init(i2c_port, SLC0, SDA0, IIC_TYPE);
-		DEBUG_I2C("[I2C] Init SW: %d\n", res);
+		i2c_pinC = SLC0;
+		i2c_pinD = SDA0;
 	}
-	res = Ql_IIC_Config(i2c_port, TRUE, slaveAddress, i2c_speed); // set default speed
-	DEBUG_I2C("[I2C] Config: %d\n", res);
+	init();
 }
 
 void TwoWire::setClock(uint32_t baudrate)
@@ -58,25 +66,22 @@ void TwoWire::setClock(uint32_t baudrate)
 	switch (baudrate)
 	{
 	case 1000000:
-		res = Ql_IIC_Config(i2c_port, TRUE, I2C_FREQUENCY_1M, IIC_TYPE);
+		i2c_speed = I2C_FREQUENCY_1M;
 		break;
 	case 400000:
-		res = Ql_IIC_Config(i2c_port, TRUE, I2C_FREQUENCY_400K, IIC_TYPE);
+		i2c_speed = I2C_FREQUENCY_400K;
 		break;
 	case 200000:
-		res = Ql_IIC_Config(i2c_port, TRUE, I2C_FREQUENCY_200K, IIC_TYPE);
+		i2c_speed = I2C_FREQUENCY_200K;
 		break;
 	case 100000:
-		res = Ql_IIC_Config(i2c_port, TRUE, I2C_FREQUENCY_100K, IIC_TYPE);
+		i2c_speed = I2C_FREQUENCY_100K;
 		break;
-	case 50000:
 	default:
-		res = Ql_IIC_Config(i2c_port, TRUE, I2C_FREQUENCY_50K, IIC_TYPE);
+		i2c_speed = I2C_FREQUENCY_50K;
 		break;
 	}
-	i2c_speed = baudrate;
-	DEBUG_I2C("[I2C] Config: %d\n", res);
-	return;
+	init();
 }
 
 void TwoWire::end()
@@ -86,19 +91,17 @@ void TwoWire::end()
 
 uint8_t TwoWire::requestFrom(uint8_t address, size_t quantity, bool stopBit)
 {
-	address = address << 1;
+	i2c_address = address << 1; // Arduino is 7bit
 	int res = -1;
 	if (quantity == 0)
 		return 0;
 	if (!stopBit)
 		return 0;
 	rxBuffer.clear();
-	res = Ql_IIC_Read(i2c_port, address, (uint8_t *)(rxBuffer._aucBuffer), (uint32_t)quantity);
-	DEBUG_I2C("[I2C] Ql_IIC_Read: %d\n", res);
+	res = Ql_IIC_Read(i2c_port, i2c_address, (uint8_t *)(rxBuffer._aucBuffer), (uint32_t)quantity);
+	//DEBUG_I2C("[I2C] Ql_IIC_Read: %d %d\n", res, quantity);
 	if (res < 0)
-	{
 		quantity = 0;
-	}
 	rxBuffer._iHead = quantity;
 	return rxBuffer.available();
 }
@@ -110,18 +113,11 @@ uint8_t TwoWire::requestFrom(uint8_t address, size_t quantity)
 
 void TwoWire::beginTransmission(uint8_t address)
 {
-	// Arduino is 7bit
-	txAddress = address << 1;
+	i2c_address = address << 1; // Arduino is 7bit
 	txBuffer.clear();
 	transmissionBegun = true;
 }
 
-// Errors:
-//  0 : Success
-//  1 : Data too long
-//  2 : NACK on transmit of address
-//  3 : NACK on transmit of data
-//  4 : Other error
 uint8_t TwoWire::endTransmission(bool stopBit)
 {
 	if (!stopBit)
@@ -129,12 +125,10 @@ uint8_t TwoWire::endTransmission(bool stopBit)
 	transmissionBegun = false;
 	if (txBuffer.available() == 0)
 		return 0;
-	int res = Ql_IIC_Write(i2c_port, txAddress, (uint8_t *)(txBuffer._aucBuffer), (uint32_t)txBuffer.available());
-	DEBUG_I2C("[I2C] Ql_IIC_Write: %d\n", res);
+	int res = Ql_IIC_Write(i2c_port, i2c_address, (uint8_t *)(txBuffer._aucBuffer), (uint32_t)txBuffer.available());
+	//DEBUG_I2C("[I2C] Ql_IIC_Write: %d\n", res);
 	if (res < 0)
-	{
 		return 4;
-	}
 	return 0;
 }
 

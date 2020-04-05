@@ -11,7 +11,7 @@ char DBG_BUFFER[256];
 #define DBG(FORMAT, ...)                                                  \
     {                                                                     \
         Ql_memset(DBG_BUFFER, 0, sizeof(DBG_BUFFER));                     \
-        Ql_sprintf(DBG_BUFFER, FORMAT, ##__VA_ARGS__);                        \
+        Ql_sprintf(DBG_BUFFER, FORMAT, ##__VA_ARGS__);                    \
         Ql_UART_Write(DBG_PORT, (u8 *)DBG_BUFFER, Ql_strlen(DBG_BUFFER)); \
     }
 
@@ -25,7 +25,7 @@ void proc_main_task(s32 taskId)
     ST_MSG msg;
     Ql_UART_Register(DBG_PORT, uart_callback, NULL);
     Ql_UART_Open(DBG_PORT, 115200, FC_NONE);
-    DBG("BEGIN\n");
+    DBG("[APP] Begin\n");
     while (1)
     {
         Ql_OS_GetMessage(&msg);
@@ -33,7 +33,7 @@ void proc_main_task(s32 taskId)
         {
         case MSG_ID_RIL_READY:
             Ql_RIL_Initialize();
-            DBG("Ril Ready\n");
+            DBG("[APP] Ril Ready\n");
             break;
         }
     }

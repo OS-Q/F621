@@ -1,110 +1,45 @@
-/*
-  BC66 - arduino_main
-    Created on: 01.01.2019
-    Author: Georgi Angelov
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA   
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #include <interface.h>
-#include <DEV.h>
+#include <os_uart.h>
+#include <os_timer.h>
+#include <os_eint.h>
 
 extern void initVariant();
 extern void setup();
 extern void loop();
 
-static struct
-{
-    uint32_t wait;
-    TaskHandle_t taskHandle;
-    ST_MSG msg;
-} arduino = {10 /* default task wait */, 0, {0, 0, 0, 0}};
+static void (*on_urc)(ST_MSG *msg) = NULL;
+void setOnUrc(void (*onUrc)(ST_MSG *msg)) { on_urc = onUrc; }
 
-void arduinoSetWait(u32 wait)
-{
-    arduino.wait = wait == 0 ? 1 : wait;
-}
+static void *arduino_task_handle = NULL;
 
-static inline void arduinoDispatchMessages(void)
-{
-    switch (arduino.msg.message)
-    {
-    case MSG_ID_URC_INDICATION:
-        Dev.m_Urc(arduino.msg.param1, arduino.msg.param2);
-        break;
-    default:
-        Dev.m_Message(&arduino.msg);
-        break;
-    }
-}
-
-extern "C" int api_get_message(ST_MSG *msg);
-void arduinoProcessMessages(unsigned int wait)
-{
-    u32 id = Ql_OS_GetActiveTaskId();
-    if (ARDUINO_TASK_ID == id)
-    {
-#if 0        
-        Ql_OS_GetMessage(&arduino.msg);                    // there is always more than zero
-        Ql_OS_SendMessage(id, MSG_PROCESS_MESSAGES, 0, 0); // send one message
-#else        
-        if (0 == api_get_message(&arduino.msg)) // Plan B, get without wait
-#endif
-        arduinoDispatchMessages();
-    }
-    Ql_Sleep(wait);
-}
-
-void delayEx(unsigned int ms)
-{
-#define BLOCK_TIME 100
-    unsigned int count = ms / BLOCK_TIME;
-    while (count--)
-        arduinoProcessMessages(BLOCK_TIME);  // step
-    arduinoProcessMessages(ms % BLOCK_TIME); // remain
-}
-
-/// Arduino Task
-extern "C" void proc_arduino(int taskId)
-{
-    arduino.taskHandle = xTaskGetCurrentTaskHandle();
-    vTaskSuspend(arduino.taskHandle); // wait ril ready
-    initVariant();
-#if 0     
-    Ql_OS_SendMessage(taskId, MSG_PROCESS_MESSAGES, 0, 0); // dont touch
-#endif    
-    arduinoProcessMessages(arduino.wait);
-    setup();
-    while (true)
-    {
-        arduinoProcessMessages(arduino.wait);
-        loop();
-    }
-}
-
-/// Main Task
+/// Main Task ID = 0
 extern "C" void proc_main_task(int taskId)
 {
-    if (api_check_api())
-    {
-        Ql_Debug_Trace("[M] ERROR Firmware not support\n");
-        abort();
-    }
-    __libc_init_array();
-    entry_main(taskId); // if function exist - OpenCPU style
+    debug_init(UART_PORT0); // weak
+    os_init();              // init API & CPP
     ST_MSG m;
+    UART uart;
+    EINT eint;
+    TIMER timer;
+    int owner_task = 0, res = -1000;
     while (true)
     {
         Ql_OS_GetMessage(&m);
@@ -112,16 +47,79 @@ extern "C" void proc_main_task(int taskId)
         {
         case MSG_ID_RIL_READY:
             Ql_RIL_Initialize();
-            vTaskResume(arduino.taskHandle); // enable arduino
-            break;
-        case MSG_ID_URC_INDICATION:
-            if (m.message > URC_CFUN_STATE_IND)                                    // ignore first urc-s
-                Ql_OS_SendMessage(ARDUINO_TASK_ID, m.message, m.param1, m.param2); // re-send to arduino task
-            break;
-        default:
-            Ql_OS_SendMessage(ARDUINO_TASK_ID, m.message, m.param1, m.param2); // re-send to arduino task
-            break;
+            if (arduino_task_handle)
+                Ql_OS_TaskResume(arduino_task_handle); // run arduino task
+            continue;
+        case MSG_ID_URC_INDICATION:         
+            if (on_urc && 101 != m.param1)
+                on_urc(&m);
+            continue;
+        } // SWITCH
+
+        if (m.message < M_START || m.message >= M_END)
+            continue;
+
+        /*** SYSTEM CALLS ***/
+        if (m.param1)
+        {
+            owner_task = *(int *)m.param1;
+            uart = (UART)m.param1;
+            eint = (EINT)m.param1;
+            timer = (TIMER)m.param1;
+            switch (m.message)
+            {
+                /*** UARTS ***/
+            case M_UART_OPEN:
+                res = uart_begin(uart, m.param2);
+                break;
+            case M_UART_CLOSE:
+                Ql_UART_Close(uart->port);
+                res = 0;
+                break;
+
+                /*** TIMERS ***/
+            case M_TIMER_START:
+                res = timer_begin(timer);
+                break;
+            case M_TIMER_STOP:
+                res = Ql_Timer_Stop(timer->id);
+                break;
+            case M_TIMER_CLOSE:
+                res = Ql_Timer_Delete(timer->id);
+                break;
+
+                /*** EINTS ***/
+            case M_EINT_OPEN:
+                res = eint_begin(eint);
+                break;
+            case M_EINT_CLOSE:
+                res = Ql_EINT_Uninit(eint->pin);
+                break;
+
+            default:
+                res = -1000;
+                owner_task = 0;
+                continue;
+            } // SWITCH
+
+            if (owner_task)
+                Ql_OS_SendMessage(owner_task, m.message, res, 0); // send 'res' to owner task
         }
-    }
+
+    } //WHILE
 }
 
+/// Arduino Task ID = 3
+extern "C" void proc_arduino(int taskId)
+{
+    arduino_task_handle = Ql_OS_GetCurrentTaskHandle();
+    Ql_OS_TaskSuspend(arduino_task_handle); // wait ril ready
+    Ql_Sleep(1);                            // yield
+    initVariant();
+    setup();
+    while (true)
+    {
+        loop();
+        Ql_Sleep(1); // is 10ms
+    }
+}

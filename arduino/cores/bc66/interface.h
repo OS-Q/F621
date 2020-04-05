@@ -1,22 +1,20 @@
-/*
-  BC66 - interface
-    Created on: 01.01.2019
-    Author: Georgi Angelov
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA   
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #ifndef INTERFACE_H_
 #define INTERFACE_H_
@@ -26,6 +24,11 @@ extern "C"
 {
 #endif
 
+#include <os_wizio.h>
+#include <os_dbg.h>
+#include <os_api.h>
+#include <os_ril.h>
+
 #include <_ansi.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -34,6 +37,7 @@ extern "C"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <time.h>
 #include <math.h>
 
 #include "ql_common.h"
@@ -54,48 +58,38 @@ extern "C"
 #include "ql_rtc.h"
 #include "ql_time.h"
 #include "ql_timer.h"
-//#include "ql_wtd.h"
 
 #include "ril.h"
 #include "ril_system.h"
 #include "ril_util.h"
-#include "ril_lwm2m.h"
-#include "ril_network.h"
-#include "ril_socket.h"
-//#include "ril_onenet.h"
 
-#include "api.h"
-#include "dbg.h"
-
+#define SYSCALL_TASK_ID 0 /* is main task */
 #define ARDUINO_TASK_ID 3 /* arduino_task_id */
-#define MSG_PROCESS_MESSAGES 0x100
 
-    extern void entry_main(int) __attribute__((weak)); // if exist, OpenCPU style else setup/loop
-    extern void __libc_init_array(void);
-    extern void __libc_fini_array(void);
+    void setOnUrc(void (*on_urc)(ST_MSG *msg));
+    bool getVersion(char version[32]);
+    void init_api(void);
 
-    unsigned int seconds(void);
-    unsigned int millis(void);
+    static inline unsigned int seconds(void) { return SECONDS(); }
+    static inline unsigned int millis(void) { return MILLIS(); }
     unsigned int micros(void);
-    void delay(unsigned int);
-    void delayMicroseconds(unsigned int us);
-    void arduinoProcessMessages(unsigned int wait);    
+    static inline void delay(unsigned int ms) { DELAY(ms); }
+    static inline void delayMicroseconds(unsigned int us) { DELAY_U(us); }
 
-    int isascii(int c);
-    int toascii(int c);
-    long atol(const char *s);
     char *itoa(int value, char *result, int base);
-    char *ltoa(long value, char *result, int base);
-    char *utoa(unsigned value, char *result, int base);
-    char *ultoa(unsigned long value, char *result, int base);
+    char *utoa(unsigned int value, char *buffer, int radix);
+    static inline char *ltoa(long value, char *result, int base) { return utoa(value, result, base); }
+    static inline char *ultoa(unsigned long value, char *result, int base) { return utoa(value, result, base); }
 
     uint32_t clockCyclesPerMicrosecond(void);
     uint32_t clockCyclesToMicroseconds(uint32_t a);
     uint32_t microsecondsToClockCycles(uint32_t a);
-    int isAtEnd(char *line, u32 len);
+
+    int isascii(int c);
+    int toascii(int c);
 
 #ifndef SERIAL_BUFFER_SIZE
-#define SERIAL_BUFFER_SIZE 256
+#define SERIAL_BUFFER_SIZE 1024
 #endif
 
     // for SPI
@@ -128,9 +122,6 @@ extern "C"
 
 #ifdef __cplusplus
 } // extern "C"
-
-void arduinoSetWait(u32 wait);
-void delayEx(unsigned int ms);
 
 #endif //__cplusplus
 

@@ -1,26 +1,25 @@
-/*
- *  Created on: 01.15.2019
- *      Author: Georgi Angelov
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #ifndef __SPI_H__
 #define __SPI_H__
 
 #include <Arduino.h>
-
-/*
-
-QUECTEL OpenCPU
-
-typedef enum
-{
-    HAL_SPI_MASTER_LSB_FIRST = 0x0,
-    HAL_SPI_MASTER_MSB_FIRST = 0x1,
-} hal_spi_master_bit_order_t;
-
-spi_config.bit_order = HAL_SPI_MASTER_MSB_FIRST = 0x1;
-
-*/
 
 typedef enum
 {

@@ -21,52 +21,56 @@
 #include <variant.h>
 
 #define PWM_MAX 8193
-int api_adc_init(int pin);
 
 int analogRead(uint8_t pin)
 {
-  uint32_t val = -1;
-  hal_adc_get_data_polling(0, &val); // * 1400
-  return val;
+    unsigned int value = 0;
+    switch (pin)
+    {
+    case PIN_ADC0:
+    case PIN_ADC1:
+    case PIN_ADC2:
+        Ql_ADC_Read(pin, &value);
+        break;
+    }
+    return value;
 }
 
 void analogWrite(uint8_t pin, int val)
 {
-  Ql_PWM_Output((Enum_PinName)pin, val);
+    Ql_PWM_Output((Enum_PinName)pin, val);
 }
 
 void analogClose(uint8_t pin)
 {
-  switch (pin)
-  {
-  //case ADC0: break;
-  case PWM0:
-    Ql_PWM_Uninit((Enum_PinName)pin);
-  }
+    switch (pin)
+    {
+    case PWM0:
+    case PWM1:
+    case PWM2:
+        Ql_PWM_Uninit((Enum_PinName)pin);
+    }
 }
 
 void analogOpen(uint8_t pin, /* val, src, div */...)
 {
-  switch (pin)
-  {
-    case ADC0:
-      api_adc_init(0);
-      break;
+    switch (pin)
+    {
     case PWM0:
     case PWM1:
     case PWM2:
     {
-      va_list list;
-      va_start(list, pin);
-      uint32_t val = va_arg(list, uint32_t);
-      uint32_t pwmSrcClk = va_arg(list, uint32_t);
-      uint32_t pwmDiv = va_arg(list, uint32_t);
-      Ql_GPIO_Uninit((Enum_PinName)pin);
-      uint32_t PWM_lowPulseNum = PWM_MAX / 2;
-      uint32_t PWM_highPulseNum = PWM_MAX / 2;
-      Ql_PWM_Init((Enum_PinName)pin, (Enum_PwmSource)pwmSrcClk, (Enum_PwmSourceDiv)pwmDiv, PWM_lowPulseNum, PWM_highPulseNum);
-      Ql_PWM_Output((Enum_PinName)pin, val);
+        va_list list;
+        va_start(list, pin);
+        uint32_t val = va_arg(list, uint32_t);
+        uint32_t pwmSrcClk = va_arg(list, uint32_t);
+        uint32_t pwmDiv = va_arg(list, uint32_t);
+        Ql_GPIO_Uninit((Enum_PinName)pin);
+        uint32_t PWM_lowPulseNum = PWM_MAX / 2;
+        uint32_t PWM_highPulseNum = PWM_MAX / 2;
+        Ql_PWM_Init((Enum_PinName)pin, (Enum_PwmSource)pwmSrcClk, (Enum_PwmSourceDiv)pwmDiv, PWM_lowPulseNum, PWM_highPulseNum);
+        Ql_PWM_Output((Enum_PinName)pin, val);
     }
     break;
-  } //switch
+    } //switch
 }

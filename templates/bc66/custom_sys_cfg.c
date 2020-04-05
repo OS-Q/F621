@@ -33,6 +33,8 @@
 #include "ril.h"
 #include "ql_common.h"
 
+void *_sbrk(int incr) { return (void *)-1; }
+
 /*========================================================================
 | 
 | Customized configurations.

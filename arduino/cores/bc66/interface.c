@@ -1,113 +1,85 @@
-/*
-  BC66 - interface
-    Created on: 01.01.2019
-    Author: Georgi Angelov
-
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA   
- */
+////////////////////////////////////////////////////////////////////////////
+//
+// Copyright 2020 Georgi Angelov
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////
 
 #include "interface.h"
 
-////////////////////////////////////////////////////////////////////////////
-// CPP 
-////////////////////////////////////////////////////////////////////////////
-
-extern void (*__preinit_array_start[])(void) __attribute__((weak));
-extern void (*__preinit_array_end[])(void) __attribute__((weak));
-extern void (*__init_array_start[])(void) __attribute__((weak));
-extern void (*__init_array_end[])(void) __attribute__((weak));
-extern void (*__fini_array_start[])(void) __attribute__((weak));
-extern void (*__fini_array_end[])(void) __attribute__((weak));
-
-extern void _init(void) __attribute__((weak));
-extern void _fini(void) __attribute__((weak));
-
-void __libc_init_array(void)
+int SYSCALL(int MSG, int A, int B)
 {
-	size_t count;
-	size_t i;
-	count = __preinit_array_end - __preinit_array_start;
-	for (i = 0; i < count; i++)
-		__preinit_array_start[i]();
-	_init();
-	count = __init_array_end - __init_array_start;
-	for (i = 0; i < count; i++)
-		__init_array_start[i]();
+	ST_MSG m;
+	static unsigned int mutex = 0;
+	if (0 == mutex)
+		mutex = Ql_OS_CreateMutex();
+	if (MUTEX_LOCK(mutex))
+	{
+		Ql_OS_SendMessage(SYSCALL_TASK_ID, MSG, A, B);
+		Ql_OS_GetMessage(&m);
+		MUTEX_UNLOCK(mutex);
+	}
+	if (MSG == m.message)
+		return m.param1;
+	return -1;
 }
 
-void __libc_fini_array(void)
-{
-	size_t count;
-	size_t i;
-	count = __fini_array_end - __fini_array_start;
-	for (i = count; i > 0; i--)
-		__fini_array_start[i - 1]();
-	_fini();
-}
+////////////////////////////////////////////////////////////////////////////
+// NO ABI
+////////////////////////////////////////////////////////////////////////////
 
-extern void abort(void)
+int isascii(int c) { return c >= 0 && c < 128; }
+int toascii(int c) { return c & 0177; }
+
+void reverse(char *begin, char *end)
 {
-	while (1) {
-		Ql_Sleep(1000);
+	char *is = begin;
+	char *ie = end - 1;
+	while (is < ie)
+	{
+		char tmp = *ie;
+		*ie = *is;
+		*is = tmp;
+		++is;
+		--ie;
 	}
 }
 
-void __cxa_finalize(void *handle) {}
-void __cxa_pure_virtual(void)
+static const char *str_digits = "0123456789abcdef";
+
+char *itoa(int value, char *result, int base)
 {
-	abort();
-}
-
-void __cxa_deleted_virtual(void)
-{
-	abort();
-}
-
-////////////////////////////////////////////////////////////////////////////
-// MEMORY
-////////////////////////////////////////////////////////////////////////////
-
-extern void *malloc(size_t size)
-{
-	return pvPortMalloc(size);
-}
-
-extern void free(void *p)
-{
-	vPortFree(p);
-}
-
-extern void *calloc(size_t nelem, size_t elsize)
-{
-	return pvPortCalloc(nelem, elsize);
-}
-
-extern void *realloc(void *mem, size_t newsize)
-{
-	return pvPortRealloc(mem, newsize);
-}
-
-////////////////////////////////////////////////////////////////////////////
-// OTHER
-////////////////////////////////////////////////////////////////////////////
-
-int isAtEnd(char *line, u32 len)
-{
-    if (Ql_RIL_FindLine(line, len, (char *)"OK"))
-        return RIL_ATRSP_SUCCESS;
-    if (Ql_RIL_FindLine(line, len, (char *)"ERROR"))
-        return RIL_ATRSP_FAILED;
-    return RIL_ATRSP_CONTINUE;
+	if (result)
+	{
+		if (base < 2 || base > 16)
+		{
+			*result = 0;
+			return result;
+		}
+		char *out = result;
+		int quotient = abs(value);
+		do
+		{
+			const int tmp = quotient / base;
+			*out = str_digits[quotient - (tmp * base)];
+			++out;
+			quotient = tmp;
+		} while (quotient);
+		if (value < 0)
+			*out++ = '-';
+		reverse(result, out);
+		*out = 0;
+	}
+	return result;
 }
