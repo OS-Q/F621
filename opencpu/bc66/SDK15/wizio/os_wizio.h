@@ -33,6 +33,7 @@ extern "C"
 #define TICK_MS (10L)
 #define DELAY(T) Ql_Sleep(T)
 #define DELAY_U(T) Ql_Delay_us(T)
+#define DELAY_M(T) Ql_Delay_ms(T)
 #define SLEEP(T) Ql_Sleep(T * 1000)
 #define HAL_MILLIS() (1000L * *((volatile uint32_t *)0xA2130118) >> 15) /* rollover at 0x20000 ms */
 #define MILLIS() (unsigned int)(Ql_OS_GetTaskTickCount() * TICK_MS)

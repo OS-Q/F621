@@ -1,28 +1,9 @@
-////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 2020 Georgi Angelov
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////
-
 #include <Arduino.h>
 #include "SPI.h"
 
 SPIClass SPI(0);
 
 #define DEBUG_SPI
-//::printf
 
 SPISettings::SPISettings(uint32_t clockFrequency, BitOrder bitOrder, SPIDataMode dataMode)
 {
@@ -48,7 +29,11 @@ void SPIClass::set_hard_pins()
     _clk = PINNAME_SPI_SCLK;  //spi CLK pin, can not change to another pin.
     _cs = PINNAME_SPI_CS;     //spi CS pin, user can change this pin to annother pin.
     _type = 1;                //spi hardware
-    _config = _cpha = _cpol = _port = 0;
+    _order = MSBFIRST;
+    _config = 0;
+    _cpha = 0;
+    _cpol = 0;
+    _port = 0;
 }
 
 SPIClass::SPIClass()
@@ -116,12 +101,12 @@ void SPIClass::setBitOrder(BitOrder order)
 
 void SPIClass::setDataMode(uint8_t mode)
 {
-    if (_cpha != (bool)mode & 1)
+    if (_cpha != (bool)(mode & 1))
     {
         _cpha = (bool)mode & 1;
         _config = 0;
     }
-    if (_cpol != (bool)mode & 2)
+    if (_cpol != (bool)(mode & 2))
     {
         _cpol = (bool)mode & 2;
         _config = 0;
@@ -137,9 +122,6 @@ void SPIClass::setFrequency(uint32_t frequency)
     }
 };
 
-/* Initializes the SPI bus by setting SCK,
-   MOSI, and SS to outputs, pulling SCK and
-   MOSI low, and SS high */
 void SPIClass::begin()
 {
     if (!_config)
@@ -150,7 +132,7 @@ void SPIClass::begin()
         {
             DEBUG_SPI("[SPI] Ql_SPI_Init: %d\n", res);
         }
-        res = Ql_SPI_Config(_port, /*master*/ 1, _cpol, _cpha, _clock);
+        res = Ql_SPI_Config(_port, 1, _cpol, _cpha, _clock);
         if (res != QL_RET_OK)
         {
             DEBUG_SPI("[SPI] Ql_SPI_Config: %d\n", res);
@@ -168,10 +150,7 @@ void SPIClass::end()
         Ql_GPIO_Uninit(_cs);
 }
 
-/* Stop using the SPI bus. Normally this is called after de-asserting the chip select, to allow other libraries to use the SPI bus */
-void SPIClass::endTransaction(void)
-{
-}
+void SPIClass::endTransaction(void) {}
 
 /* Initializes the SPI bus using the defined SPISettings */
 void SPIClass::beginTransaction(SPISettings settings)
@@ -232,7 +211,7 @@ int SPIClass::transfer(uint8_t *tx, uint32_t wLen)
         if (_order == MSBFIRST)
         {
             int res = Ql_SPI_Write(_port, tx, wLen);
-            if (res != wLen)
+            if (res != (int)wLen)
             {
                 DEBUG_SPI("[SPI] Ql_SPI_Write len: %d res: %d\n", wLen, res);
             }
@@ -258,7 +237,7 @@ int SPIClass::transfer(uint8_t *tx, uint32_t wLen, uint8_t *rx, uint32_t rLen)
                 res = Ql_SPI_WriteRead(_port, tx, wLen, rx, rLen); // Half-Duplex Transfer!
             else
                 res = Ql_SPI_WriteRead_Ex(_port, tx, wLen, rx, rLen); // Full-Duplex Transfer!
-            if (res != rLen)
+            if (res != (int)rLen)
             {
                 DEBUG_SPI("[SPI] Ql_SPI_WriteRead txlen: %d rxlen: %d res: %d\n", wLen, rLen, res);
             }
