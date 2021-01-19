@@ -1,7 +1,7 @@
 {
-    "name": "framework-N38",
+    "name": "N38",
     "description": "Quectel openCPU Frameworks",
     "url": "https://github.com/OS-Q/N38",
     "system": "*",
-    "version": "2.1.3"
+    "version": "2.1.4"
 }

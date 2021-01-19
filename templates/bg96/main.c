@@ -1,11 +1,3 @@
-/*
-    ThreadX BG96 - MAIN
-        Created on: 01.01.2019
-        Author: Georgi Angelov  
-        http://www.wizio.eu/
-        https://github.com/Wiz-IO/platform-quectel        
- */
-
 #include <_ansi.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -30,7 +22,7 @@ void *_sbrk(intptr_t increment) { return (void *)-1; }
 void abort(void)
 {
     while (1) // dont block app
-        qapi_Timer_Sleep(100, QAPI_TIMER_UNIT_SEC, 1); 
+        qapi_Timer_Sleep(100, QAPI_TIMER_UNIT_SEC, 1);
 }
 
 TX_BYTE_POOL *heap;
