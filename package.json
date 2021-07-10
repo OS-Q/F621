@@ -1,7 +1,7 @@
 {
-    "name": "N38",
+    "name": "F621",
     "description": "Quectel openCPU Frameworks",
-    "url": "https://github.com/OS-Q/N38",
+    "url": "https://github.com/OS-Q/F621",
     "system": "*",
     "version": "2.1.4"
 }
